@@ -20,8 +20,23 @@
 			{
 				$user = $users[0];
 				$stored_password = (string)$user['password'];
+				$is_valid_password = false;
 
-				if(password_verify($password, $stored_password))
+				if(isPasswordHash($stored_password))
+				{
+					$is_valid_password = password_verify($password, $stored_password);
+				}
+				else if(hash_equals($stored_password, $password))
+				{
+					$new_hash = password_hash($password, PASSWORD_DEFAULT);
+					if($new_hash)
+					{
+						executePrepared("UPDATE manage_user SET password = ? WHERE id = ?", "si", array($new_hash, (int)$user['id']));
+					}
+					$is_valid_password = true;
+				}
+
+				if($is_valid_password)
 				{
 					session_regenerate_id(true);
 					setLoginId($user['id']);
