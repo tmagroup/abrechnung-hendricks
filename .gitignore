@@ -1,0 +1,28 @@
+cat > .gitignore <<'EOF'
+/vendor/
+node_modules/
+
+# Secrets / local config
+.env
+.env.*
+/app/config/config.php
+/app/config/config.php.local
+
+# Backups / dumps / archives
+*.sql
+*.zip
+*.tar
+*.tar.gz
+*.gz
+*.log
+*.backup
+
+# Public DB tools
+/db.php
+/adminer.php
+
+logs/
+error_docs/
+wordpress-backups/
+storage/logs/
+EOF
