@@ -1,6 +1,56 @@
 <?php
  if (!defined('APP_FOLDER')) exit('No direct script access allowed');
 
+
+	if(!function_exists('dbConnect'))
+	{
+		function dbConnect()
+		{
+			$mysqli = mysqli_connect(DB_HOSTNAME, DB_USERNAME, DB_PASSWORD, DB_NAME);
+			if(!$mysqli)
+			{
+				die('Database connection failed.');
+			}
+			mysqli_set_charset($mysqli, 'utf8mb4');
+			return $mysqli;
+		}
+	}
+
+	if(!function_exists('selectPrepared'))
+	{
+		function selectPrepared($sql, $types = '', $params = array())
+		{
+			$mysqli = dbConnect();
+			$stmt = mysqli_prepare($mysqli, $sql);
+			if(!$stmt)
+			{
+				mysqli_close($mysqli);
+				return array();
+			}
+
+			if($types != '' && !empty($params))
+			{
+				mysqli_stmt_bind_param($stmt, $types, ...$params);
+			}
+
+			mysqli_stmt_execute($stmt);
+			$res = mysqli_stmt_get_result($stmt);
+			$data = array();
+			if($res)
+			{
+				while($row = mysqli_fetch_assoc($res))
+				{
+					$data[] = $row;
+				}
+				mysqli_free_result($res);
+			}
+
+			mysqli_stmt_close($stmt);
+			mysqli_close($mysqli);
+			return $data;
+		}
+	}
+
 	if(!function_exists('select'))
 	{
 		function select($table_name,$condition="",$field_name="*")

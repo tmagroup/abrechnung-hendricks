@@ -7,21 +7,39 @@
 		setRules('password','Password','required');
 		if(validation())
 		{
-			extract(xssClean($_POST));
-			$mu = select('manage_user',"(email = '$user_name' || mobile = '$user_name') && password = '$password'");
+			$user_name = trim($_POST['user_name'] ?? '');
+			$password = (string)($_POST['password'] ?? '');
+
+			$users = selectPrepared(
+				"SELECT id, password FROM manage_user WHERE email = ? OR mobile = ? LIMIT 1",
+				"ss",
+				array($user_name, $user_name)
+			);
 			
-			if(count($mu) == 1)
+			if(count($users) == 1)
 			{
-				setLoginId($mu[0]['id']);
-				setMsg('login successfully.');
-				redirect('detailabrechnung');
+				$user = $users[0];
+				$stored_password = (string)$user['password'];
+				$is_valid_password = password_verify($password, $stored_password);
+
+				// Temporary backwards compatibility for existing plain-text passwords.
+				// After all passwords are migrated to hashes, remove this fallback.
+				if(!$is_valid_password && hash_equals($stored_password, $password))
+				{
+					$is_valid_password = true;
+				}
+
+				if($is_valid_password)
+				{
+					session_regenerate_id(true);
+					setLoginId($user['id']);
+					setMsg('login successfully.');
+					redirect('detailabrechnung');
+				}
 			}
-			else
-			{
-				setMsg('Your user name or password is wrong.',1);
-				redirect();
-			}
-			
+
+			setMsg('Your user name or password is wrong.',1);
+			redirect();
 		}
 	}
 ?>
