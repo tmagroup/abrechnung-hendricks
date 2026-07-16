@@ -1,7 +1,6 @@
 <?php
  if (!defined('APP_FOLDER')) exit('No direct script access allowed');
 
-
 	if(!function_exists('dbConnect'))
 	{
 		function dbConnect()
@@ -51,6 +50,40 @@
 		}
 	}
 
+	if(!function_exists('executePrepared'))
+	{
+		function executePrepared($sql, $types = '', $params = array())
+		{
+			$mysqli = dbConnect();
+			$stmt = mysqli_prepare($mysqli, $sql);
+			if(!$stmt)
+			{
+				mysqli_close($mysqli);
+				return false;
+			}
+
+			if($types != '' && !empty($params))
+			{
+				mysqli_stmt_bind_param($stmt, $types, ...$params);
+			}
+
+			$flag = mysqli_stmt_execute($stmt);
+			mysqli_stmt_close($stmt);
+			mysqli_close($mysqli);
+			return $flag;
+		}
+	}
+
+	if(!function_exists('isPasswordHash'))
+	{
+		function isPasswordHash($password)
+		{
+			$password = (string)$password;
+			$info = password_get_info($password);
+			return !empty($info['algo']);
+		}
+	}
+
 	if(!function_exists('select'))
 	{
 		function select($table_name,$condition="",$field_name="*")
@@ -76,11 +109,9 @@
 			mysqli_free_result($res);
 			mysqli_close($mysqli);
 
-			
 			return $data;
 		}
 	}
-
 
 	if(!function_exists('selectById'))
 	{
@@ -94,7 +125,7 @@
 			mysqli_free_result($res);
 			mysqli_close($mysqli);
             $rw = array();
-			if(is_array($row)){				
+			if(is_array($row)){
 				foreach($row as $k=>$v){
 					$rw["$k"] = $v;
 				}
@@ -249,7 +280,6 @@
 	{
 		function countRec($table_name,$condition="")
 		{
-
 			if($condition != "")
 			{
 				$condition = " where ".$condition;

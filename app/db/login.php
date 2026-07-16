@@ -20,16 +20,8 @@
 			{
 				$user = $users[0];
 				$stored_password = (string)$user['password'];
-				$is_valid_password = password_verify($password, $stored_password);
 
-				// Temporary backwards compatibility for existing plain-text passwords.
-				// After all passwords are migrated to hashes, remove this fallback.
-				if(!$is_valid_password && hash_equals($stored_password, $password))
-				{
-					$is_valid_password = true;
-				}
-
-				if($is_valid_password)
+				if(password_verify($password, $stored_password))
 				{
 					session_regenerate_id(true);
 					setLoginId($user['id']);

@@ -65,6 +65,11 @@
 			</ul>
 			<ul class="navbar-nav ml-auto">
 				<li class="nav-item">
+					<a class="nav-link" href="<?php echo appUrl('account'); ?>">
+						Password Security
+					</a>
+				</li>
+				<li class="nav-item">
 					<a class="nav-link" href="<?php echo appUrl('logout'); ?>">
 						Logout
 					</a>
