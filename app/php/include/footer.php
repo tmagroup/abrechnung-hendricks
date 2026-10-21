@@ -1,8 +1,8 @@
 		 <footer class="main-footer">
-			<strong>Copyright &copy; Excel Import.</strong>
-				All rights reserved.
+			<strong>Copyright &copy; <?php echo date('Y'); ?> Hendrick's Coffee.</strong>
+				Alle Rechte vorbehalten.
 			<div class="float-right d-none d-sm-inline-block">
-				<b>Version</b>1.0
+				<b>Version</b> 1.0
 			</div>
 		</footer>
 			<!-- Control Sidebar -->
@@ -11,5 +11,5 @@
 			</aside>
 			<!-- /.control-sidebar -->
 		</div>
-	</body>
+		</body>
 </html>

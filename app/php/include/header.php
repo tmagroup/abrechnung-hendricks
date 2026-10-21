@@ -15,6 +15,9 @@
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/adminlte.min.css">
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/OverlayScrollbars.min.css">
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/toastr.min.css">
+		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/hendricks.css">
+		<!-- Google Font: Passion One (Coffee-Branding) -->
+		<link href="https://fonts.googleapis.com/css2?family=Passion+One:wght@400;700&display=swap" rel="stylesheet">
 		<!-- Start CSS -->
 
 		<!--- start js Files -->
@@ -54,13 +57,16 @@
     	   }
 		</style>
 	</head>
-<body class="hold-transition sidebar-mini layout-fixed text-sm accent-indigo">
+<body class="hold-transition sidebar-mini layout-fixed text-sm accent-indigo hc-theme">
 		<?php echo getMsg(); ?>
 	<div class="wrapper">
-		<nav class="main-header navbar navbar-expand navbar-indigo navbar-dark ">
+		<nav class="main-header navbar navbar-expand navbar-dark">
 			<ul class="navbar-nav">
 				<li class="nav-item">
 					<a class="nav-link" data-widget="pushmenu" href="#"><i class="fas fa-bars"></i></a>
+				</li>
+				<li class="nav-item d-none d-sm-inline-block">
+					<span class="nav-link text-nowrap" style="font-family:'Passion One',cursive; font-size:1.35rem; color:#f4ead9; letter-spacing:.03em;">Hendrick's Coffee</span>
 				</li>
 			</ul>
 			<ul class="navbar-nav ml-auto">
@@ -76,9 +82,10 @@
 				</li>
 			</ul>
 		</nav>
-		<aside class="main-sidebar sidebar-light-indigo elevation-4">
-			<a href="index3.html" class="brand-link">
-				<span class="brand-text font-weight-light">Excel Import Admin</span>
+		<aside class="main-sidebar sidebar-dark elevation-4 hc-sidebar">
+			<a href="<?php echo appUrl('detailabrechnung'); ?>" class="brand-link">
+				<span class="brand-logo"><i class="fas fa-mug-hot"></i></span>
+				<span class="brand-text font-weight-light">Hendrick's Coffee</span>
 			</a>
 			<div class="sidebar">
 				<nav class="mt-2">

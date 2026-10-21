@@ -1,7 +1,7 @@
 <?php 
 	if(!defined("APP_FOLDER")) exit("No direct script access allowed");
 	afterLogin();
-	$columns = ['id', 'start_date', 'id'];
+	$columns = ['id', 'start_date', 'status', 'id'];
 	$limit  = $_POST['length'];
 	$start  = $_POST['start'];
 	$order  = $columns[$_POST['order'][0]['column']];
@@ -35,11 +35,24 @@
 		$end_date .= date("Y",strtotime($row['end_date']));
 		
 		$show_date = $start_date.' - '.$end_date;
-		$action	= '<a href="'.$app_url."detailabrechnung/".base64_encode($row['id']).'?is_download=yes" class="btn btn-primary btn-sm">Download</a> ';
-		$action	.= '<button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn">Delete</button>';
+		
+		// Status: Archiviert, wenn "gelöscht" (weiches Löschen), sonst erledigt/offen nach Datum
+		$isArchived = !empty($row['deleted_at']);
+		$zeitpunktAbgelaufen = (!empty($row['end_date']) && strtotime($row['end_date']) < time());
+		if ($isArchived) {
+			$status = '<span class="badge badge-archiv"><i class="fas fa-box-archive"></i> Archiviert</span>';
+		} elseif ($zeitpunktAbgelaufen) {
+			$status = '<span class="badge badge-erledigt"><i class="fas fa-check"></i> Erledigt</span>';
+		} else {
+			$status = '<span class="badge badge-offen"><i class="fas fa-hourglass-half"></i> Offen</span>';
+		}
+		
+		$action	= '<a href="'.$app_url."detailabrechnung/".base64_encode($row['id']).'?is_download=yes" class="btn btn-coffee btn-sm" title="Download"><i class="fas fa-download"></i></a> ';
+		$action	.= '<button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn" title="Löschen"><i class="fas fa-trash"></i></button>';
 		$data[] = [
-					$row['id'],
+					'#'.$row['id'],
 					$show_date,
+					$status,
 					$action
 				];
 		
@@ -49,7 +62,7 @@
 		"draw"            => intval($_POST['draw']),
 		"recordsTotal"    => intval($totalData),
 		"recordsFiltered" => intval($totalFiltered),
-		"data"            => $data
+		"data"            => $data ?? []
 	]);
 
 ?>
