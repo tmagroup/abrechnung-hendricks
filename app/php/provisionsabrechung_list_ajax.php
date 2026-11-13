@@ -39,7 +39,7 @@
 		$show_date = $start_date.' - '.$end_date;
 		
 		$action	= '<a href="'.$app_url."provisionsabrechung/".base64_encode($row['id']).'?is_download=yes" class="btn btn-primary btn-sm">Download</a> ';
-		$action	.= '<button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn">Delete</button>';
+		$action	.= '<button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn">Löschen</button>';
 		$data[] = [
 					$row['id'],
 					$show_date,

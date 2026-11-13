@@ -134,7 +134,7 @@
 	
 	if(!function_exists('afterLogin'))
 	{
-		function afterLogin($group=APP_SESSION,$redirect="login",$msg="Login First.")
+		function afterLogin($group=APP_SESSION,$redirect="login",$msg="Bitte zuerst anmelden.")
 		{
 			$name_id = $group."_id";
 			if(!isset($_SESSION["$group"]["$name_id"]))
@@ -147,7 +147,7 @@
 	
 	if(!function_exists('beforeLogin'))
 	{
-		function beforeLogin($group=APP_SESSION,$redirect='dashboard',$msg="Already Login.")
+		function beforeLogin($group=APP_SESSION,$redirect='dashboard',$msg="Sie sind bereits angemeldet.")
 		{
 			$name_id = $group."_id";
 			if(isset($_SESSION["$group"]["$name_id"]))

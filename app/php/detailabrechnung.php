@@ -3,6 +3,7 @@
 	
 	afterLogin();
 	$page_title	= "Detailabrechnung";
+	$page_subtitle = "Zeitraum wählen und Excel-Datei hochladen";
 	include_once "include/header.php";
 ?>
 <div class="content-wrapper">

@@ -2,7 +2,8 @@
 	if(!defined('APP_FOLDER')) exit('No direct script access allowed');
 
 	afterLogin();
-	$page_title = "Account & Password Security";
+	$page_title = "Passwort & Sicherheit";
+	$page_subtitle = "Konto und Passwort";
 	$all_users = selectPrepared("SELECT id, name, email, mobile, password FROM manage_user", "", array());
 	$legacy_password_count = 0;
 	$current_user = array();
@@ -27,7 +28,7 @@
 		<div class="container-fluid">
 			<div class="row mb-2">
 				<div class="col-sm-6">
-					<h1 class="m-0 text-dark">Account & Password Security</h1>
+					<h1 class="m-0 text-dark">Passwort & Sicherheit</h1>
 				</div>
 			</div>
 		</div>
@@ -39,26 +40,26 @@
 				<div class="col-lg-6">
 					<div class="card">
 						<div class="card-header">
-							<h3 class="card-title">Logged in account</h3>
+							<h3 class="card-title">Angemeldetes Konto</h3>
 						</div>
 						<div class="card-body">
 							<p><strong>Name:</strong> <?php echo htmlspecialchars($current_user['name'] ?? '', ENT_QUOTES, 'UTF-8'); ?></p>
-							<p><strong>Email:</strong> <?php echo htmlspecialchars($current_user['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?></p>
-							<p><strong>Mobile:</strong> <?php echo htmlspecialchars($current_user['mobile'] ?? '', ENT_QUOTES, 'UTF-8'); ?></p>
-							<p><strong>Password status:</strong> <?php echo $current_user_has_legacy_password ? '<span class="text-warning">Legacy plain-text</span>' : '<span class="text-success">Hashed</span>'; ?></p>
+							<p><strong>E-Mail:</strong> <?php echo htmlspecialchars($current_user['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?></p>
+							<p><strong>Mobil:</strong> <?php echo htmlspecialchars($current_user['mobile'] ?? '', ENT_QUOTES, 'UTF-8'); ?></p>
+							<p><strong>Passwort:</strong> <?php echo $current_user_has_legacy_password ? '<span class="text-warning">noch im Klartext</span>' : '<span class="text-success">gehasht</span>'; ?></p>
 						</div>
 					</div>
 
 					<div class="card card-warning">
 						<div class="card-header">
-							<h3 class="card-title">Legacy password migration</h3>
+							<h3 class="card-title">Alte Passwörter umstellen</h3>
 						</div>
 						<div class="card-body">
-							<p>Legacy plain-text passwords found: <strong><?php echo (int)$legacy_password_count; ?></strong></p>
-							<p class="text-muted mb-3">Run this once before logging out, so future logins use password hashes only.</p>
+							<p>Klartext-Passwörter: <strong><?php echo (int)$legacy_password_count; ?></strong></p>
+							<p class="text-muted mb-3">Einmal ausführen, damit künftige Anmeldungen nur noch mit Hash arbeiten.</p>
 							<form method="post">
 								<button type="submit" name="migrate_passwords" class="btn btn-warning" <?php echo $legacy_password_count === 0 ? 'disabled' : ''; ?>>
-									Migrate legacy passwords
+									Klartext-Passwörter hashen
 								</button>
 							</form>
 						</div>
@@ -68,26 +69,26 @@
 				<div class="col-lg-6">
 					<div class="card">
 						<div class="card-header">
-							<h3 class="card-title">Change password</h3>
+							<h3 class="card-title">Passwort ändern</h3>
 						</div>
 						<form method="post">
 							<div class="card-body">
 								<div class="form-group">
-									<label>Current password</label>
+									<label>Aktuelles Passwort</label>
 									<input type="password" name="current_password" class="form-control" required />
 								</div>
 								<div class="form-group">
-									<label>New password</label>
+									<label>Neues Passwort</label>
 									<input type="password" name="new_password" class="form-control" minlength="10" required />
-									<small class="text-muted">Use at least 10 characters. If your account still shows a legacy password above, run the migration first.</small>
+									<small class="text-muted">Mindestens 10 Zeichen. Steht oben noch ein Klartext-Passwort, zuerst die Umstellung ausführen.</small>
 								</div>
 								<div class="form-group mb-0">
-									<label>Confirm new password</label>
+									<label>Neues Passwort wiederholen</label>
 									<input type="password" name="confirm_password" class="form-control" minlength="10" required />
 								</div>
 							</div>
 							<div class="card-footer">
-								<button type="submit" name="change_password" class="btn btn-primary">Save new password</button>
+								<button type="submit" name="change_password" class="btn btn-primary">Passwort speichern</button>
 							</div>
 						</form>
 					</div>

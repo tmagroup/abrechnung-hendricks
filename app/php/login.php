@@ -1,66 +1,37 @@
-<?php 
+<?php
 	if(!defined('APP_FOLDER')) exit('No direct script access allowed');
 	beforeLogin();
-	
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="de">
 	<head>
-		<title>Excel To PDF Admin</title>
 		<meta charset="utf-8">
-		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<title>Anmelden · Hendricks Coffee</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/all.min.css" />
-		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/adminlte.min.css" />
+		<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/hendricks.css">
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/toastr.min.css">
 		<script src="<?php echo $app_url; ?>assets/js/jquery.min.js"></script>
-		<script src="<?php echo $app_url; ?>assets/js/bootstrap.bundle.js"></script>
-		<script src="<?php echo $app_url; ?>assets/js/adminlte.js"></script>
 		<script src="<?php echo $app_url; ?>assets/js/toastr.min.js"></script>
 	</head>
-	<body class="hold-transition login-page">
-		<div class="login-box">
-			<div class="login-logo">
-				<h2>Excel To PDF Admin</h2>
+	<body class="hc-login">
+		<?php echo getMsg(); ?>
+		<form class="login-card" method="post">
+			<img src="<?php echo $app_url; ?>assets/images/logo-black.png" alt="The Hendricks Coffee">
+			<h1>CRM</h1>
+			<p class="lead">Anmeldung für Abrechnung und Live-Übersicht</p>
+			<div class="field">
+				<input type="text" name="user_name" placeholder="E-Mail oder Mobilnummer" value="<?php echo htmlspecialchars((string) ($_POST['user_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" autocomplete="username">
+				<div class="err"><?php echo errorMsg('user_name'); ?></div>
 			</div>
-			<div class="card">
-				<div class="card-body login-card-body">
-					<p class="login-box-msg"><?php echo getMsg(); ?></p>
-					<form method="post">
-						<div class="input-group mb-3">
-							<input type="text" class="form-control" placeholder="Email address or Mobile number" name='user_name' />
-							<div class="input-group-append">
-								<div class="input-group-text">
-									<span class="fas fa-envelope"></span>
-								</div>
-							</div>
-						</div>
-						<div style='color:red;'><?php echo errorMsg("user_name"); ?></div>
-						<div class="input-group mb-3">
-							<input type="password" class="form-control" placeholder="Enter your password" name='password' />
-							<div class="input-group-append">
-								<div class="input-group-text">
-									<span class="fas fa-lock"></span>
-								</div>
-							</div>
-						</div>
-						<div style='color:red;'><?php echo errorMsg("password"); ?></div>
-						<div class="row">
-							<div class="col-8">
-								<div class="icheck-primary">
-									&nbsp;<input type="checkbox" name='remeber' id="remember">
-									<label for="remember">
-										Remember Me
-									</label>
-								</div>
-							</div>
-							<div class="col-4">
-								<button type="submit" name='login' class="btn btn-primary btn-block">Sign In</button>
-							</div>
-						</div>
-					</form>
-				</div>
+			<div class="field">
+				<input type="password" name="password" placeholder="Passwort" autocomplete="current-password">
+				<div class="err"><?php echo errorMsg('password'); ?></div>
 			</div>
-		</div>
+			<div class="rowish">
+				<label><input type="checkbox" name="remeber" id="remember"> Angemeldet bleiben</label>
+				<button type="submit" name="login">Anmelden</button>
+			</div>
+		</form>
 	</body>
 </html>

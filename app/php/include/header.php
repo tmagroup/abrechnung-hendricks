@@ -1,203 +1,82 @@
 <?php
 	if(!defined('APP_FOLDER')) exit('No direct script access allowed');
 	afterLogin();
+	$hc_user = hc_current_user();
+	$hc_name = trim((string) ($hc_user['name'] ?? ''));
+	if ($hc_name === '') {
+		$hc_name = 'Konto';
+	}
+	$page_title = $page_title ?? 'Hendricks Coffee';
+	$page_subtitle = $page_subtitle ?? '';
+	$page_banner_html = $page_banner_html ?? '';
+	$nav = array(
+		array('group' => 'Übersicht'),
+		array('href' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'grid', 'on' => array('dashboard')),
+		array('group' => 'Betrieb'),
+		array('href' => 'maschinen', 'label' => 'Maschinen', 'icon' => 'machine', 'tag' => 'NEU', 'on' => array('maschinen')),
+		array('href' => 'live_verkaeufe', 'label' => 'Live-Verkäufe', 'icon' => 'pulse', 'tag' => 'NEU', 'on' => array('live_verkaeufe')),
+		array('href' => 'fuellstaende', 'label' => 'Füllstände', 'icon' => 'gauge', 'tag' => 'NEU', 'on' => array('fuellstaende')),
+		array('group' => 'Abrechnung'),
+		array('href' => 'monatsabrechnung', 'label' => 'Monatsabrechnung', 'icon' => 'calendar', 'tag' => 'BALD', 'on' => array('monatsabrechnung')),
+		array('href' => 'detailabrechnung', 'label' => 'Detailabrechnung', 'icon' => 'doc', 'on' => array('detailabrechnung', 'abrechungen')),
+		array('href' => 'abrechnung_gesamt', 'label' => 'Abrechnung Gesamt', 'icon' => 'receipt', 'on' => array('abrechnung_gesamt', 'abrechnung_gesamt_list')),
+		array('href' => 'excel_upload', 'label' => 'Excel-Upload', 'icon' => 'upload', 'on' => array('excel_upload')),
+		array('group' => 'Provision'),
+		array('href' => 'provisionsabrechung', 'label' => 'Provisionsabrechnung', 'icon' => 'percent', 'on' => array('provisionsabrechung', 'provisionsabrechung_list')),
+		array('href' => 'provisions_empfanger', 'label' => 'Provisionsempfänger', 'icon' => 'users', 'on' => array('provisions_empfanger')),
+		array('group' => 'Konto'),
+		array('href' => 'account', 'label' => 'Passwort & Sicherheit', 'icon' => 'shield', 'on' => array('account')),
+	);
 ?>
 <!doctype html>
-<html>
+<html lang="de">
 	<head>
-		<title><?php echo $page_title; ?></title>
-
-		
+		<meta charset="utf-8">
+		<title><?php echo hc_h($page_title); ?> · Hendricks Coffee</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<!-- Start CSS -->
-		<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/all.min.css">
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/adminlte.min.css">
-		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/OverlayScrollbars.min.css">
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/toastr.min.css">
 		<link rel="stylesheet" href="<?php echo $app_url; ?>assets/css/hendricks.css">
-		<!-- Google Font: Passion One (Coffee-Branding) -->
-		<link href="https://fonts.googleapis.com/css2?family=Passion+One:wght@400;700&display=swap" rel="stylesheet">
-		<!-- Start CSS -->
-
-		<!--- start js Files -->
 		<script src="<?php echo $app_url; ?>assets/js/jquery.min.js"></script>
 		<script src="<?php echo $app_url; ?>assets/js/toastr.min.js"></script>
 		<script src="<?php echo $app_url; ?>assets/js/bootstrap.bundle.js"></script>
-		<script src="<?php echo $app_url; ?>assets/js/jquery.overlayScrollbars.min.js"></script>
-		<script src="<?php echo $app_url; ?>assets/js/adminlte.js"></script>
-		<!--- end js Files -->
-		<style>
-	        .frac {
-                display: inline-block;
-                position: relative;
-                vertical-align: middle;
-                letter-spacing: 0.001em;
-                text-align: center;
-            }
-            .frac > span {
-                display: block;
-                padding: 0.1em;
-            }
-            .frac span.bottom {
-                border-top: thin solid black;
-            }
-            .frac span.symbol {
-                display: none;
-            } 
-		    [contentEditable=true]:empty:not(:focus):before{
-        		content:attr(data-text);
-        		color:#888;
-        	}
-        	#editor {
-    		    border: 1px solid grey;
-    		    min-height: 100px;
-    		    margin: 0px auto 0;
-    		    padding:10px;
-    	   }
-		</style>
 	</head>
-<body class="hold-transition sidebar-mini layout-fixed text-sm accent-indigo hc-theme">
-		<?php echo getMsg(); ?>
-	<div class="wrapper">
-		<nav class="main-header navbar navbar-expand navbar-dark">
-			<ul class="navbar-nav">
-				<li class="nav-item">
-					<a class="nav-link" data-widget="pushmenu" href="#"><i class="fas fa-bars"></i></a>
-				</li>
-				<li class="nav-item d-none d-sm-inline-block">
-					<span class="nav-link text-nowrap" style="font-family:'Passion One',cursive; font-size:1.35rem; color:#f4ead9; letter-spacing:.03em;">Hendrick's Coffee</span>
-				</li>
-			</ul>
-			<ul class="navbar-nav ml-auto">
-				<li class="nav-item">
-					<a class="nav-link" href="<?php echo appUrl('account'); ?>">
-						Password Security
+<body class="hc-app">
+	<?php echo getMsg(); ?>
+	<button class="nav-toggle" type="button" aria-label="Menü"><?php echo hc_icon('menu', 20); ?></button>
+	<aside class="side">
+		<div class="badge">
+			<a href="<?php echo appUrl('dashboard'); ?>"><img src="<?php echo $app_url; ?>assets/images/logo-white.png" alt="The Hendricks Coffee"></a>
+			<span>CRM</span>
+		</div>
+		<nav class="nav">
+			<?php foreach ($nav as $item) { ?>
+				<?php if (isset($item['group'])) { ?>
+					<div class="grp"><?php echo hc_h($item['group']); ?></div>
+				<?php } else { ?>
+					<a class="<?php echo hc_nav_on($item['on']); ?>" href="<?php echo appUrl($item['href']); ?>">
+						<?php echo hc_icon($item['icon']); ?>
+						<?php echo hc_h($item['label']); ?>
+						<?php if (!empty($item['tag'])) { ?><span class="tag"><?php echo hc_h($item['tag']); ?></span><?php } ?>
 					</a>
-				</li>
-				<li class="nav-item">
-					<a class="nav-link" href="<?php echo appUrl('logout'); ?>">
-						Logout
-					</a>
-				</li>
-			</ul>
+				<?php } ?>
+			<?php } ?>
 		</nav>
-		<aside class="main-sidebar sidebar-dark elevation-4 hc-sidebar">
-			<a href="<?php echo appUrl('detailabrechnung'); ?>" class="brand-link">
-				<span class="brand-logo"><i class="fas fa-mug-hot"></i></span>
-				<span class="brand-text font-weight-light">Hendrick's Coffee</span>
-			</a>
-			<div class="sidebar">
-				<nav class="mt-2">
-					<ul class="nav nav-pills nav-sidebar flex-column nav-flat nav-legacy nav-compact" data-widget="treeview" role="menu" data-accordion="false">
-						<li class="nav-item has-treeview <?php if($page_name == 'detailabrechnung'){ echo 'menu-open'; } ?>">
-							<a href="#" class="nav-link <?php if($page_name == 'detailabrechnung'){ echo 'active'; } ?>">
-							  
-							  <p>
-								Detailabrechnung
-								<i class="right fas fa-angle-left"></i>
-							  </p>
-							</a>
-							<ul class="nav nav-treeview">
-								<li class="nav-item">
-									<a href="<?php echo appUrl('detailabrechnung'); ?>" class="nav-link <?php if($page_name == 'detailabrechnung'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Detailabrechnung</p>
-									</a>
-								</li>
-								<li class="nav-item">
-									<a href="<?php echo appUrl('abrechungen'); ?>" class="nav-link <?php if($page_name == 'abrechungen'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Abrechungen</p>
-									</a>
-								</li>
-							</ul>
-						</li>
-						
-						<li class="nav-item has-treeview <?php if($page_name == 'abrechnung_gesamt'){ echo 'menu-open'; } ?>">
-							<a href="#" class="nav-link <?php if($page_name == 'abrechnung_gesamt'){ echo 'active'; } ?>">
-							  
-							  <p>
-								Abrechnung Gesamt
-								<i class="right fas fa-angle-left"></i>
-							  </p>
-							</a>
-							<ul class="nav nav-treeview">
-								<li class="nav-item">
-									<a href="<?php echo appUrl('abrechnung_gesamt'); ?>" class="nav-link <?php if($page_name == 'abrechnung_gesamt'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Abrechnung Gesamt</p>
-									</a>
-								</li>
-								<li class="nav-item">
-									<a href="<?php echo appUrl('abrechnung_gesamt_list'); ?>" class="nav-link <?php if($page_name == 'abrechnung_gesamt_list'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Abrechungen</p>
-									</a>
-								</li>
-							</ul>
-						</li>
-						
-						<li class="nav-item has-treeview <?php if($page_name == 'provisions_empfanger'){ echo 'menu-open'; } ?>">
-							<a href="#" class="nav-link <?php if($page_name == 'provisions_empfanger'){ echo 'active'; } ?>">
-							  
-							  <p>
-								Provisions Empfänger
-								<i class="right fas fa-angle-left"></i>
-							  </p>
-							</a>
-							<ul class="nav nav-treeview">
-								<li class="nav-item">
-									<a href="<?php echo appUrl('provisions_empfanger'); ?>" class="nav-link <?php if($page_name == 'provisions_empfanger'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Provisions Empfänger</p>
-									</a>
-								</li>
-							</ul>
-						</li>
-						
-						<li class="nav-item has-treeview <?php if($page_name == 'provisionsabrechung'){ echo 'menu-open'; } ?>">
-							<a href="#" class="nav-link <?php if($page_name == 'provisionsabrechung'){ echo 'active'; } ?>">
-							  <p>
-								Provisionsabrechung
-								<i class="right fas fa-angle-left"></i>
-							  </p>
-							</a>
-							<ul class="nav nav-treeview">
-								<li class="nav-item">
-									<a href="<?php echo appUrl('provisionsabrechung'); ?>" class="nav-link <?php if($page_name == 'provisionsabrechung'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Provisionsabrechung</p>
-									</a>
-								</li>
-								<li class="nav-item">
-									<a href="<?php echo appUrl('provisionsabrechung_list'); ?>" class="nav-link <?php if($page_name == 'provisionsabrechung_list'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Abrechungen</p>
-									</a>
-								</li>
-							</ul>
-						</li>
-						<!--
-						<li class="nav-item has-treeview <?php if($page_name == 'dashboard'){ echo 'menu-open'; } ?>">
-							<a href="#" class="nav-link <?php if($page_name == 'dashboard'){ echo 'active'; } ?>">
-							  <i class="nav-icon fas fa-tachometer-alt"></i>
-							  <p>
-								Detailabrechnung
-								<i class="right fas fa-angle-left"></i>
-							  </p>
-							</a>
-							<ul class="nav nav-treeview">
-								<li class="nav-item">
-									<a href="<?php echo appUrl('dashboard'); ?>" class="nav-link <?php if($page_name == 'dashboard'){ echo 'active'; } ?>">
-										<i class="far fa-circle nav-icon"></i>
-										<p>Detailabrechnung</p>
-									</a>
-								</li>
-							</ul>
-						</li>
-						-->
-					</ul>
-				</nav>
+		<div class="me">
+			<a class="av" href="<?php echo appUrl('account'); ?>"><?php echo hc_h(hc_initials($hc_name)); ?></a>
+			<a class="who" href="<?php echo appUrl('account'); ?>"><b><?php echo hc_h($hc_name); ?></b><span>Angemeldet</span></a>
+			<a class="out" href="<?php echo appUrl('logout'); ?>" title="Abmelden"><?php echo hc_icon('logout', 18); ?></a>
+		</div>
+	</aside>
+	<main class="main">
+		<div class="top">
+			<div>
+				<h1><?php echo hc_h($page_title); ?></h1>
+				<?php if ($page_subtitle !== '') { ?><p><?php echo hc_h($page_subtitle); ?></p><?php } ?>
 			</div>
-		</aside>
+			<?php if ($page_banner_html !== '') { ?><div class="r"><?php echo $page_banner_html; ?></div><?php } ?>
+		</div>
+		<div class="hc-page">
