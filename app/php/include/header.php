@@ -18,11 +18,17 @@
 		array('href' => 'fuellstaende', 'label' => 'Füllstände', 'icon' => 'gauge', 'tag' => 'NEU', 'on' => array('fuellstaende')),
 		array('group' => 'Abrechnung'),
 		array('href' => 'monatsabrechnung', 'label' => 'Monatsabrechnung', 'icon' => 'calendar', 'tag' => 'BALD', 'on' => array('monatsabrechnung')),
-		array('href' => 'detailabrechnung', 'label' => 'Detailabrechnung', 'icon' => 'doc', 'on' => array('detailabrechnung', 'abrechungen')),
-		array('href' => 'abrechnung_gesamt', 'label' => 'Abrechnung Gesamt', 'icon' => 'receipt', 'on' => array('abrechnung_gesamt', 'abrechnung_gesamt_list')),
+		array('href' => 'detailabrechnung', 'label' => 'Detailabrechnung', 'icon' => 'doc', 'on' => array('detailabrechnung', 'abrechungen'), 'children' => array(
+			array('href' => 'abrechungen', 'label' => 'Gespeicherte Abrechnungen', 'on' => array('abrechungen')),
+		)),
+		array('href' => 'abrechnung_gesamt', 'label' => 'Abrechnung Gesamt', 'icon' => 'receipt', 'on' => array('abrechnung_gesamt', 'abrechnung_gesamt_list'), 'children' => array(
+			array('href' => 'abrechnung_gesamt_list', 'label' => 'Gespeicherte Abrechnungen', 'on' => array('abrechnung_gesamt_list')),
+		)),
 		array('href' => 'excel_upload', 'label' => 'Excel-Upload', 'icon' => 'upload', 'on' => array('excel_upload')),
 		array('group' => 'Provision'),
-		array('href' => 'provisionsabrechung', 'label' => 'Provisionsabrechnung', 'icon' => 'percent', 'on' => array('provisionsabrechung', 'provisionsabrechung_list')),
+		array('href' => 'provisionsabrechung', 'label' => 'Provisionsabrechnung', 'icon' => 'percent', 'on' => array('provisionsabrechung', 'provisionsabrechung_list'), 'children' => array(
+			array('href' => 'provisionsabrechung_list', 'label' => 'Gespeicherte Abrechnungen', 'on' => array('provisionsabrechung_list')),
+		)),
 		array('href' => 'provisions_empfanger', 'label' => 'Provisionsempfänger', 'icon' => 'users', 'on' => array('provisions_empfanger')),
 		array('group' => 'Konto'),
 		array('href' => 'account', 'label' => 'Passwort & Sicherheit', 'icon' => 'shield', 'on' => array('account')),
@@ -62,6 +68,13 @@
 						<?php echo hc_h($item['label']); ?>
 						<?php if (!empty($item['tag'])) { ?><span class="tag"><?php echo hc_h($item['tag']); ?></span><?php } ?>
 					</a>
+					<?php if (!empty($item['children'])) { ?>
+						<?php foreach ($item['children'] as $child) { ?>
+							<a class="sub <?php echo hc_nav_on($child['on']); ?>" href="<?php echo appUrl($child['href']); ?>">
+								<?php echo hc_h($child['label']); ?>
+							</a>
+						<?php } ?>
+					<?php } ?>
 				<?php } ?>
 			<?php } ?>
 		</nav>

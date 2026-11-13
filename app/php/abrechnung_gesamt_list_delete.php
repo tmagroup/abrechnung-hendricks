@@ -5,7 +5,7 @@
 	{
 		$invoice_id = base64_decode($_POST['id']);
 		updateById('invoice2',['deleted_at'=>date("Y-m-d H:i:s")],$invoice_id);
-		echo json_encode(["status"=> true, "msg"=>"Delete record successfully."]);
+		echo json_encode(["status"=> true, "msg"=>"Die Abrechnung wurde gelöscht."]);
 		die;
 	}
 ?>

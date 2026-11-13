@@ -2,36 +2,34 @@
 	if(!defined('APP_FOLDER')) exit('No direct script access allowed');
 	
 	afterLogin();
-	$page_title	= "Abrechungen";
+	$page_title	= "Gespeicherte Abrechnungen";
+	$page_subtitle = "Provisionsabrechnung";
+	$page_banner_html = '<a class="btn d" href="' . appUrl('provisionsabrechung') . '">Neue Abrechnung erstellen</a>';
 	include_once "include/header.php";
 ?>
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" />
 <div class="content-wrapper">
-    <div class="content-header">
-		<div class="container-fluid">
-			<div class="row mb-2">
-				<div class="col-sm-6">
-					<h1 class="m-0 text-dark">Abrechungen</h1>
-				</div>
-				<div class="col-sm-6">
-				</div>
-			</div>
-		</div>
-    </div>
- 
     <section class="content">
 		<div class="container-fluid">
-			<table id="abrechungen" class="display">
-				<thead>
-					<tr>
-						<th>Abrechungsnr</th>
-						<th>Zeitraum</th>
-						<th>Firma</th>
-						<th>Name</th>
-						<th>Action</th>
-					</tr>
-				</thead>
-			</table>
+			<div class="card">
+				<div class="card-header">
+					<?php echo hc_icon('receipt', 16); ?> Alle Abrechnungen
+				</div>
+				<div class="card-body">
+					<table id="abrechungen" class="display" style="width:100%">
+						<thead>
+							<tr>
+								<th>Abrechnungsnr</th>
+								<th>Zeitraum</th>
+								<th>Firma</th>
+								<th>Name</th>
+								<th class="r">Betrag</th>
+								<th>Aktion</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>
 		</div>
     </section>
 </div>
@@ -41,6 +39,21 @@ $(document).ready(function () {
     var table = $('#abrechungen').DataTable({
         "processing": true,
         "serverSide": true,
+        "language": {
+            "search": "Suchen:",
+            "lengthMenu": "_MENU_ Einträge pro Seite",
+            "info": "Zeige _START_ bis _END_ von _TOTAL_ Abrechnungen",
+            "infoEmpty": "Keine Abrechnungen vorhanden",
+            "infoFiltered": "(gefiltert aus _MAX_ Einträgen)",
+            "zeroRecords": "Keine Abrechnungen gefunden",
+            "emptyTable": "Keine Abrechnungen vorhanden",
+            "processing": "Lade...",
+            "paginate": { "first": "Erste", "last": "Letzte", "next": "Weiter", "previous": "Zurück" }
+        },
+        "columnDefs": [
+            { "className": "r", "targets": 4 },
+            { "orderable": false, "targets": 5 }
+        ],
         "ajax": {
             "url": "<?= $app_url.'provisionsabrechung_list_ajax'; ?>",
             "type": "POST"
@@ -50,7 +63,7 @@ $(document).ready(function () {
 	$(document).on('click', '.delete-btn', function () {
         var id = $(this).data('id');
 
-        if (confirm("Are you sure you want to delete?")) {
+        if (confirm("Möchtest du diese Abrechnung wirklich löschen?")) {
             $.ajax({
                 url: "<?= $app_url."provisionsabrechung_list_delete"; ?>",
                 type: "POST",
@@ -62,7 +75,7 @@ $(document).ready(function () {
 						toastr.success(response.msg)
                         table.ajax.reload(null, false);
                     } else {
-                        alert("Delete failed");
+                        alert("Löschen fehlgeschlagen");
                     }
                 }
             });

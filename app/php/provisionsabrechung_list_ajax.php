@@ -1,7 +1,7 @@
 <?php 
 	if(!defined("APP_FOLDER")) exit("No direct script access allowed");
 	afterLogin();
-	$columns = ['invoice3.id', 'invoice3.start_date', 'commission_recipient.company', 'commission_recipient.first_name', 'commission_recipient.name'];
+	$columns = ['invoice3.id', 'invoice3.start_date', 'commission_recipient.company', 'commission_recipient.first_name', 'invoice3.total_amount', 'invoice3.id'];
 	$limit  = $_POST['length'];
 	$start  = $_POST['start'];
 	$order  = $columns[$_POST['order'][0]['column']];
@@ -38,13 +38,14 @@
 		
 		$show_date = $start_date.' - '.$end_date;
 		
-		$action	= '<a href="'.$app_url."provisionsabrechung/".base64_encode($row['id']).'?is_download=yes" class="btn btn-primary btn-sm">Download</a> ';
+		$action	= '<a href="'.$app_url."provisionsabrechung/".base64_encode($row['id']).'?is_download=yes" class="btn btn-coffee btn-sm">Herunterladen</a> ';
 		$action	.= '<button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn">Löschen</button>';
 		$data[] = [
 					$row['id'],
 					$show_date,
 					$row['company'],
 					$row['first_name'].' '.$row['name'],
+					hc_money((float) ($row['total_amount'] ?? 0)),
 					$action
 				];
 	} 
@@ -53,7 +54,7 @@
 		"draw"            => intval($_POST['draw']),
 		"recordsTotal"    => intval($totalData),
 		"recordsFiltered" => intval($totalFiltered),
-		"data"            => $data
+		"data"            => $data ?? []
 	]);
 
 ?>

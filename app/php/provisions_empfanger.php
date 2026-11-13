@@ -87,7 +87,7 @@
 									
 									<div class="col-md-3">
 										<div class="form-group">
-											<label for="email">Email</label>
+											<label for="email">E-Mail</label>
 											<input type="email" id="email" name="email" class="form-control" value="<?php echo setValue("email"); ?>" />
 											<small id="error_email" class="form-text" style="color:red;"><?php echo errorMsg("email"); ?></small>
 										</div>
@@ -144,7 +144,7 @@
 						<th>Vorname</th>
 						<th>Name</th>
 						<th>Provision</th>
-						<th>Action</th>
+						<th>Aktion</th>
 					</tr>
 				</thead>
 			</table>
@@ -163,22 +163,22 @@ function validation() {
 	let commission = $("#commission").val().trim();
 
 	if (company === "") {
-		$("#error_company").html("Firma is required.");
+		$("#error_company").html("Firma ist erforderlich.");
 		flag = false;
 	} else $("#error_company").html("");
 
 	if (first_name === "") {
-		$("#error_first_name").html("Vorname is required.");
+		$("#error_first_name").html("Vorname ist erforderlich.");
 		flag = false;
 	} else $("#error_first_name").html("");
 
 	if (name === "") {
-		$("#error_name").html("Name is required.");
+		$("#error_name").html("Name ist erforderlich.");
 		flag = false;
 	} else $("#error_name").html("");
 
 	if (commission === "") {
-		$("#error_commission").html("Provision is required.");
+		$("#error_commission").html("Provision ist erforderlich.");
 		flag = false;
 	} else $("#error_commission").html("");
 
@@ -266,7 +266,7 @@ $(document).ready(function () {
 					input.remove();
 			},
 			error: function () {
-				toastr.error("Something went wrong!");
+				toastr.error("Das hat nicht geklappt.");
 			}
 		});
 	});
@@ -275,7 +275,7 @@ $(document).ready(function () {
 	$(document).on('click', '.delete-btn', function () {
 		var id = $(this).data('id');
 
-		if (confirm("Are you sure you want to delete?")) {
+		if (confirm("Möchtest du diesen Provisionsempfänger wirklich löschen?")) {
 			$.ajax({
 				url: "<?= $app_url."provisions_empfanger_delete"; ?>",
 				type: "POST",
@@ -286,7 +286,7 @@ $(document).ready(function () {
 						toastr.success(response.msg)
 						table.ajax.reload(null, false);
 					} else {
-						alert("Delete failed");
+						alert("Löschen fehlgeschlagen");
 					}
 				}
 			});

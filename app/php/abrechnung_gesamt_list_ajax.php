@@ -1,14 +1,14 @@
 <?php 
 	if(!defined("APP_FOLDER")) exit("No direct script access allowed");
 	afterLogin();
-	$columns = ['id', 'start_date', 'status', 'id'];
+	$columns = ['id', 'start_date', 'total_amount', 'end_date', 'id'];
 	$limit  = $_POST['length'];
 	$start  = $_POST['start'];
 	$order  = $columns[$_POST['order'][0]['column']];
 	$dir    = $_POST['order'][0]['dir'];
 	$search = $_POST['search']['value'];
 
-	$totalData = countRec("invoice","deleted_at IS NULL");
+	$totalData = countRec("invoice2","deleted_at IS NULL");
 
 	$searchSql = "";
 	if (!empty($search)) {
@@ -18,9 +18,9 @@
 	
 	$searchSql = ($searchSql != "") ?  " AND ".$searchSql : "";
 
-	$sql = "SELECT * FROM invoice WHERE deleted_at IS NULL $searchSql ORDER BY $order $dir LIMIT $start, $limit";
+	$sql = "SELECT * FROM invoice2 WHERE deleted_at IS NULL $searchSql ORDER BY $order $dir LIMIT $start, $limit";
 	$result = query($sql);
-	$totalFiltered = countRec("invoice","deleted_at IS NULL $searchSql");
+	$totalFiltered = countRec("invoice2","deleted_at IS NULL $searchSql");
 	
 	foreach($result as $row){
 		$monthsAbbr = ["Jan"=>"Jan","Feb"=>"Feb","Mar"=>"Mär","Apr"=>"Apr","May"=>"Mai","Jun"=>"Jun","Jul"=>"Jul","Aug"=>"Aug","Sep"=>"Sep","Oct"=>"Okt","Nov"=>"Nov","Dec"=>"Dez"];
@@ -40,18 +40,19 @@
 		$isArchived = !empty($row['deleted_at']);
 		$zeitpunktAbgelaufen = (!empty($row['end_date']) && strtotime($row['end_date']) < time());
 		if ($isArchived) {
-			$status = '<span class="badge badge-archiv"><i class="fas fa-box-archive"></i> Archiviert</span>';
+			$status = '<span class="badge badge-archiv">Archiviert</span>';
 		} elseif ($zeitpunktAbgelaufen) {
-			$status = '<span class="badge badge-erledigt"><i class="fas fa-check"></i> Erledigt</span>';
+			$status = '<span class="badge badge-erledigt">Erledigt</span>';
 		} else {
-			$status = '<span class="badge badge-offen"><i class="fas fa-hourglass-half"></i> Offen</span>';
+			$status = '<span class="badge badge-offen">Offen</span>';
 		}
 		
-		$action	= '<a href="'.$app_url."detailabrechnung/".base64_encode($row['id']).'?is_download=yes" class="btn btn-coffee btn-sm" title="Download"><i class="fas fa-download"></i></a> ';
-		$action	.= '<button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn" title="Löschen"><i class="fas fa-trash"></i></button>';
+		$action	= '<a href="'.$app_url."abrechnung_gesamt/".base64_encode($row['id']).'?is_download=yes" class="btn btn-coffee btn-sm">Herunterladen</a> ';
+		$action	.= '<button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn">Löschen</button>';
 		$data[] = [
 					'#'.$row['id'],
 					$show_date,
+					hc_money((float) ($row['total_amount'] ?? 0)),
 					$status,
 					$action
 				];
