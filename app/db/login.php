@@ -40,12 +40,12 @@
 				{
 					session_regenerate_id(true);
 					setLoginId($user['id']);
-					setMsg('login successfully.');
-					redirect('detailabrechnung');
+					setMsg('Anmeldung erfolgreich.');
+					redirect('dashboard');
 				}
 			}
 
-			setMsg('Your user name or password is wrong.',1);
+			setMsg('Benutzername oder Passwort ist falsch.',1);
 			redirect();
 		}
 	}

@@ -1,12 +1,12 @@
 <?php 
 	if(!defined("APP_FOLDER")) exit("No direct script access allowed");
-	require 'vendor/autoload.php'; 
 	use PhpOffice\PhpSpreadsheet\IOFactory;
 	use Dompdf\Dompdf;
 	use Dompdf\Options;
 	
 	if(isset($_POST["add_excel"]))
 	{
+		require 'vendor/autoload.php';
 		$fileName = $_FILES["excel_sheet"]["name"];
         $fileType = $_FILES["excel_sheet"]["type"];
         $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
@@ -19,10 +19,10 @@
         $allowedExtensions = ['xls', 'xlsx', 'csv'];
 
         if (!in_array($fileType, $allowedMimeTypes)) {
-			setMsg("Error: Only Excel (XLS, XLSX) and CSV files are allowed based on MIME type.",1);
+			setMsg("Nur Excel-Dateien (XLS, XLSX) und CSV sind erlaubt.",1);
 			redirect();
         }else if (!in_array(strtolower($fileExtension), $allowedExtensions)) {
-            setMsg("Error: Only Excel (XLS, XLSX) and CSV files are allowed based on file extension.",1);
+            setMsg("Nur Excel-Dateien (XLS, XLSX) und CSV sind erlaubt.",1);
 			redirect();
         }else {
 

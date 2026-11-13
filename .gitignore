@@ -1,4 +1,3 @@
-cat > .gitignore <<'EOF'
 /vendor/
 node_modules/
 
@@ -10,6 +9,8 @@ node_modules/
 
 # Backups / dumps / archives
 *.sql
+!app/db/migrations/
+!app/db/migrations/*.sql
 *.zip
 *.tar
 *.tar.gz
@@ -25,4 +26,5 @@ logs/
 error_docs/
 wordpress-backups/
 storage/logs/
-EOF
+
+.phpunit.cache/

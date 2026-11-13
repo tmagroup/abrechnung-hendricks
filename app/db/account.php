@@ -29,7 +29,7 @@
 	if(isset($_POST['migrate_passwords']))
 	{
 		$migrated = migrateLegacyPasswords();
-		setMsg($migrated > 0 ? "$migrated password(s) migrated successfully." : 'No legacy passwords found.');
+		setMsg($migrated === 1 ? '1 Passwort wurde gehasht.' : ($migrated > 1 ? $migrated . ' Passwörter wurden gehasht.' : 'Keine Klartext-Passwörter gefunden.'));
 		redirect('account');
 	}
 
@@ -42,26 +42,26 @@
 
 		if($current_password === '' || $new_password === '' || $confirm_password === '')
 		{
-			setMsg('Please fill in all password fields.', 1);
+			setMsg('Bitte alle Passwortfelder ausfüllen.', 1);
 			redirect('account');
 		}
 
 		if(strlen($new_password) < 10)
 		{
-			setMsg('The new password must be at least 10 characters long.', 1);
+			setMsg('Das neue Passwort muss mindestens 10 Zeichen lang sein.', 1);
 			redirect('account');
 		}
 
 		if($new_password !== $confirm_password)
 		{
-			setMsg('The new password confirmation does not match.', 1);
+			setMsg('Die Passwort-Wiederholung stimmt nicht überein.', 1);
 			redirect('account');
 		}
 
 		$users = selectPrepared("SELECT id, password FROM manage_user WHERE id = ? LIMIT 1", "i", array($user_id));
 		if(count($users) !== 1)
 		{
-			setMsg('User account not found.', 1);
+			setMsg('Das Benutzerkonto wurde nicht gefunden.', 1);
 			redirect('account');
 		}
 
@@ -69,30 +69,30 @@
 		$stored_password = (string)$user['password'];
 		if(!isPasswordHash($stored_password))
 		{
-			setMsg('Please migrate legacy passwords first.', 1);
+			setMsg('Bitte zuerst die alten Klartext-Passwörter umstellen.', 1);
 			redirect('account');
 		}
 
 		if(!password_verify($current_password, $stored_password))
 		{
-			setMsg('The current password is incorrect.', 1);
+			setMsg('Das aktuelle Passwort ist falsch.', 1);
 			redirect('account');
 		}
 
 		$new_hash = password_hash($new_password, PASSWORD_DEFAULT);
 		if(!$new_hash)
 		{
-			setMsg('The new password could not be saved.', 1);
+			setMsg('Das neue Passwort konnte nicht gespeichert werden.', 1);
 			redirect('account');
 		}
 
 		if(executePrepared("UPDATE manage_user SET password = ? WHERE id = ?", "si", array($new_hash, $user_id)))
 		{
-			setMsg('Password updated successfully.');
+			setMsg('Das Passwort wurde gespeichert.');
 		}
 		else
 		{
-			setMsg('The new password could not be saved.', 1);
+			setMsg('Das neue Passwort konnte nicht gespeichert werden.', 1);
 		}
 		redirect('account');
 	}

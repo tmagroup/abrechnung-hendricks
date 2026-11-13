@@ -23,7 +23,7 @@
 	
 	foreach($result as $row){		
 		$action	= '<button type="button" data-id="'.base64_encode($row['id']).'" data-company="'.$row['company'].'" data-first_name="'.$row['first_name'].'" data-name="'.$row['name'].'" data-street="'.$row['street'].'" data-zip_code="'.$row['zip_code'].'" data-location="'.$row['location'].'" data-email="'.$row['email'].'" data-phone="'.$row['phone'].'" data-bank_recipient="'.$row['bank_recipient'].'" data-iban_no="'.$row['iban_no'].'" data-bic="'.$row['bic'].'" data-commission="'.$row['commission'].'" class="btn btn-secondary btn-sm edit-btn">Edit</button>';
-		$action	.= ' <button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn">Delete</button>';
+		$action	.= ' <button type="button" data-id="'.base64_encode($row['id']).'" class="btn btn-danger btn-sm delete-btn">Löschen</button>';
 		$data[] = [
 					$row['company'],
 					$row['first_name'],

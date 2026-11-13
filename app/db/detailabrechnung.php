@@ -24,10 +24,10 @@
 			$allowedExtensions = ['xls', 'xlsx', 'csv'];
 
 			if (!in_array($fileType, $allowedMimeTypes)) {
-				setMsg("Error: Only Excel (XLS, XLSX) and CSV files are allowed based on MIME type.",1);
+				setMsg("Nur Excel-Dateien (XLS, XLSX) und CSV sind erlaubt.",1);
 				redirect();
 			}else if (!in_array(strtolower($fileExtension), $allowedExtensions)) {
-				setMsg("Error: Only Excel (XLS, XLSX) and CSV files are allowed based on file extension.",1);
+				setMsg("Nur Excel-Dateien (XLS, XLSX) und CSV sind erlaubt.",1);
 				redirect();
 			}else {
 				$filePath = $_FILES['excel_sheet']['tmp_name'];
@@ -99,7 +99,7 @@
 					$data_invoice_list['amount'] = $invoice_list_amount[$key];				
 					insert("invoice_list",$data_invoice_list);
 				}
-				setMsg("Add excel successfully.");
+				setMsg("Die Excel-Datei wurde verarbeitet.");
 				redirect("detailabrechnung/".base64_encode($invoice_id));
 				
 			}

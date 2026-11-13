@@ -30,7 +30,7 @@
 										<div class="form-group">
 											<label for="commission_recipient_id">Provision Empfänger</label>
 											<select id="commission_recipient_id" name="commission_recipient_id" class="form-control">
-												<option value="">-- Select Option --</option>
+												<option value="">Bitte wählen</option>
 												<?php 
 													$commission_recipient = select('commission_recipient','deleted_at IS NULL');
 													foreach($commission_recipient as $cr){
@@ -62,7 +62,7 @@
 								
 									<div class="col-md-3">
 										<div class="form-group">
-											<label for="excel_sheet">Upload Excel Sheet Convert to PDF</label>
+											<label for="excel_sheet">Excel-Datei (wird zu PDF)</label>
 											<input type="file" class="form-control" id="excel_sheet" name="excel_sheet" value="<?php echo setValue("excel_sheet"); ?>" accept=".xls,.xlsx,application/vnd.ms-excel" />
 											<small id="error_excel_sheet" class="form-text" style="color:red;"><?php echo errorMsg("excel_sheet"); ?></small>
 										</div>

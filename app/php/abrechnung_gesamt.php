@@ -44,7 +44,7 @@
 								
 									<div class="col-md-4">
 										<div class="form-group">
-											<label for="excel_sheet">Upload Excel Sheet Convert to PDF</label>
+											<label for="excel_sheet">Excel-Datei (wird zu PDF)</label>
 											<input type="file" class="form-control" id="excel_sheet" name="excel_sheet" value="<?php echo setValue("excel_sheet"); ?>" accept=".xls,.xlsx,application/vnd.ms-excel" />
 											<small id="error_excel_sheet" class="form-text" style="color:red;"><?php echo errorMsg("excel_sheet"); ?></small>
 										</div>
