@@ -2,40 +2,31 @@
 	if(!defined('APP_FOLDER')) exit('No direct script access allowed');
 	
 	afterLogin();
-	$page_title	= "Abrechnungen";
+	$page_title	= "Gespeicherte Abrechnungen";
+	$page_subtitle = "Detailabrechnung";
+	$page_banner_html = '<a class="btn d" href="' . appUrl('detailabrechnung') . '">Neue Abrechnung erstellen</a>';
 	include_once "include/header.php";
 	
 	// Statistiken für die Karten
 	$stat_total     = countRec("invoice", "deleted_at IS NULL");
 	$stat_current   = countRec("invoice", "deleted_at IS NOT NULL AND DATE_FORMAT(created_at, '%Y-%m') = '".date('Y-m')."'");
 	$latest         = query("SELECT start_date FROM invoice WHERE deleted_at IS NULL ORDER BY start_date DESC LIMIT 1");
-	$stat_latest    = (!empty($latest[0]['start_date'])) ? date("d. M Y", strtotime($latest[0]['start_date'])) : "–";
+	$stat_latest    = "–";
+	if (!empty($latest[0]['start_date'])) {
+		$latest_ts = strtotime($latest[0]['start_date']);
+		$stat_latest = date("d. ", $latest_ts) . hc_month_short((int) date("n", $latest_ts)) . " " . date("Y", $latest_ts);
+	}
 	$stat_archived  = countRec("invoice", "deleted_at IS NOT NULL");
 ?>
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" />
 <div class="content-wrapper">
-    <div class="content-header">
-		<div class="container-fluid">
-			<div class="row mb-2">
-				<div class="col-sm-6">
-					<h1 class="m-0">Abrechnungen</h1>
-				</div>
-				<div class="col-sm-6 text-right">
-					<a href="<?php echo appUrl('detailabrechnung'); ?>" class="btn btn-coffee">
-						<i class="fas fa-plus"></i>&nbsp; Neue Detailabrechnung
-					</a>
-				</div>
-			</div>
-		</div>
-    </div>
- 
     <section class="content">
 		<div class="container-fluid">
 			<!-- Statistik-Karten -->
 			<div class="row mb-4">
 				<div class="col-md-6 col-lg-3 mb-3">
 					<div class="stat-card d-flex align-items-center">
-						<div class="stat-icon mr-3"><i class="fas fa-file-invoice"></i></div>
+						<div class="stat-icon mr-3"><?php echo hc_icon('doc', 18); ?></div>
 						<div>
 							<div class="stat-label">Abrechnungen gesamt</div>
 							<div class="stat-value"><?php echo intval($stat_total); ?></div>
@@ -44,17 +35,17 @@
 				</div>
 				<div class="col-md-6 col-lg-3 mb-3">
 					<div class="stat-card d-flex align-items-center">
-						<div class="stat-icon mr-3"><i class="fas fa-calendar-month"></i></div>
+						<div class="stat-icon mr-3"><?php echo hc_icon('calendar', 18); ?></div>
 						<div>
 							<div class="stat-label">Aktueller Monat</div>
 							<div class="stat-value"><?php echo intval($stat_current); ?></div>
-							<div class="stat-sub"><?php echo date('F Y'); ?></div>
+							<div class="stat-sub"><?php echo hc_h(hc_month_long((int) date('n')) . ' ' . date('Y')); ?></div>
 						</div>
 					</div>
 				</div>
 				<div class="col-md-6 col-lg-3 mb-3">
 					<div class="stat-card d-flex align-items-center">
-						<div class="stat-icon mr-3"><i class="fas fa-clock"></i></div>
+						<div class="stat-icon mr-3"><?php echo hc_icon('receipt', 18); ?></div>
 						<div>
 							<div class="stat-label">Letzte Abrechnung</div>
 							<div class="stat-value" style="font-size:1.25rem;"><?php echo $stat_latest; ?></div>
@@ -63,7 +54,7 @@
 				</div>
 				<div class="col-md-6 col-lg-3 mb-3">
 					<div class="stat-card d-flex align-items-center">
-						<div class="stat-icon mr-3"><i class="fas fa-box-archive"></i></div>
+						<div class="stat-icon mr-3"><?php echo hc_icon('doc', 18); ?></div>
 						<div>
 							<div class="stat-label">Archivierte Dokumente</div>
 							<div class="stat-value"><?php echo intval($stat_archived); ?></div>
@@ -75,7 +66,7 @@
 			<!-- Abrechnungs-Tabelle -->
 			<div class="card">
 				<div class="card-header">
-					<i class="fas fa-mug-hot mr-2"></i> Alle Abrechnungen
+					<?php echo hc_icon('receipt', 16); ?> Alle Abrechnungen
 				</div>
 				<div class="card-body">
 					<table id="abrechungen" class="display" style="width:100%">
@@ -83,6 +74,7 @@
 							<tr>
 								<th>Abrechnungsnr</th>
 								<th>Zeitraum</th>
+								<th class="r">Betrag</th>
 								<th>Status</th>
 								<th>Aktion</th>
 							</tr>
@@ -103,9 +95,17 @@ $(document).ready(function () {
             "search": "Suchen:",
             "lengthMenu": "_MENU_ Einträge pro Seite",
             "info": "Zeige _START_ bis _END_ von _TOTAL_ Abrechnungen",
+            "infoEmpty": "Keine Abrechnungen vorhanden",
+            "infoFiltered": "(gefiltert aus _MAX_ Einträgen)",
             "zeroRecords": "Keine Abrechnungen gefunden",
-            "processing": "Lade..."
+            "emptyTable": "Keine Abrechnungen vorhanden",
+            "processing": "Lade...",
+            "paginate": { "first": "Erste", "last": "Letzte", "next": "Weiter", "previous": "Zurück" }
         },
+        "columnDefs": [
+            { "className": "r", "targets": 2 },
+            { "orderable": false, "targets": 4 }
+        ],
         "ajax": {
             "url": "<?= $app_url.'abrechungen_ajax'; ?>",
             "type": "POST"

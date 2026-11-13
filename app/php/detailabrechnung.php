@@ -4,6 +4,7 @@
 	afterLogin();
 	$page_title	= "Detailabrechnung";
 	$page_subtitle = "Zeitraum wählen und Excel-Datei hochladen";
+	$page_banner_html = '<a class="btn d" href="' . appUrl('abrechungen') . '">Gespeicherte Abrechnungen</a>';
 	include_once "include/header.php";
 ?>
 <div class="content-wrapper">

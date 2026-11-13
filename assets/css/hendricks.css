@@ -115,6 +115,31 @@ a:hover { color: var(--bordd); }
 	border-left-color: var(--gold);
 	box-shadow: 0 4px 14px #0006;
 }
+.nav a.sub {
+	margin: 0 0 4px 18px;
+	padding: 7px 12px 7px 14px;
+	font-size: 13px;
+	font-weight: 500;
+	color: #d9c7ae;
+	border-left: 2px solid rgba(201, 162, 74, .55);
+	border-radius: 0 6px 6px 0;
+}
+.nav a.sub::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	opacity: .75;
+	flex: 0 0 6px;
+}
+.nav a.sub.on {
+	background: rgba(201, 162, 74, .22);
+	color: #fff;
+	font-weight: 700;
+	box-shadow: none;
+	border-left-color: var(--gold);
+}
 .nav a:hover { color: #fff; }
 .nav a .tag {
 	margin-left: auto;
@@ -210,6 +235,18 @@ a:hover { color: var(--bordd); }
 	font-weight: 600;
 }
 .top .r { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.top .btn,
+.top a.btn {
+	background: #fff !important;
+	color: var(--bordd) !important;
+	border-color: #fff !important;
+}
+.top .btn.d,
+.top a.btn.d {
+	background: var(--gold) !important;
+	color: #2a1a14 !important;
+	border-color: var(--gold) !important;
+}
 .chip {
 	display: flex;
 	gap: 8px;
@@ -481,6 +518,11 @@ a:hover { color: var(--bordd); }
 	border-color: var(--gold) !important;
 	color: #2a1a14 !important;
 }
+.hc-app .btn-sm {
+	padding: 6px 10px;
+	font-size: 12px;
+	gap: 6px;
+}
 .hc-app .btn:disabled, .hc-app .btn.disabled { opacity: .55; cursor: not-allowed; }
 
 .hc-app .content-wrapper {
@@ -542,10 +584,16 @@ a:hover { color: var(--bordd); }
 	display: inline-flex; align-items: center; justify-content: center;
 	border: 1px solid var(--line);
 }
+.stat-card .stat-icon .ic,
+.hc-app .card-header .ic { display: block; }
+.hc-app .card-header .ic { margin-right: 8px; }
+.hc-app .card-header { display: flex; align-items: center; }
 .stat-card .stat-label { text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; font-weight: 700; color: var(--mut); }
 .stat-card .stat-value { font-size: 1.55rem; font-weight: 800; color: var(--ink); line-height: 1.15; }
 .stat-card .stat-sub { font-size: .82rem; color: var(--mut); }
 
+table.dataTable th.r,
+table.dataTable td.r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 table.dataTable thead th {
 	background: transparent !important;
 	color: var(--bordd) !important;

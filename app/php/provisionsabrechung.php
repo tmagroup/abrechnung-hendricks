@@ -2,7 +2,9 @@
 	if(!defined('APP_FOLDER')) exit('No direct script access allowed');
 	
 	afterLogin();
-	$page_title	= "Provisionsabrechung";
+	$page_title	= "Provisionsabrechnung";
+	$page_subtitle = "Empfänger und Zeitraum wählen, Excel-Datei hochladen";
+	$page_banner_html = '<a class="btn d" href="' . appUrl('provisionsabrechung_list') . '">Gespeicherte Abrechnungen</a>';
 	include_once "include/header.php";
 ?>
 <div class="content-wrapper">
@@ -10,7 +12,7 @@
 		<div class="container-fluid">
 			<div class="row mb-2">
 				<div class="col-sm-6">
-					<h1 class="m-0 text-dark">Provisionsabrechung</h1>
+					<h1 class="m-0 text-dark">Provisionsabrechnung</h1>
 				</div>
 				<div class="col-sm-6">
 				</div>
@@ -28,7 +30,7 @@
 								<div class="row">
 									<div class="col-md-3">
 										<div class="form-group">
-											<label for="commission_recipient_id">Provision Empfänger</label>
+											<label for="commission_recipient_id">Provisionsempfänger</label>
 											<select id="commission_recipient_id" name="commission_recipient_id" class="form-control">
 												<option value="">Bitte wählen</option>
 												<?php 
@@ -46,7 +48,7 @@
 									
 									<div class="col-md-3">
 										<div class="form-group">
-											<label for="start_date">Zeitraum beginn</label>
+											<label for="start_date">Zeitraum Beginn</label>
 											<input type="date" id="start_date" name="start_date" class="form-control" value="<?php echo setValue("start_date"); ?>" />
 											<small id="error_start_date" class="form-text" style="color:red;"><?php echo errorMsg("start_date"); ?></small>
 										</div>
@@ -54,7 +56,7 @@
 									
 									<div class="col-md-3">
 										<div class="form-group">
-											<label for="end_date">Zeitraum ende</label>
+											<label for="end_date">Zeitraum Ende</label>
 											<input type="date" id="end_date" name="end_date" class="form-control" value="<?php echo setValue("end_date"); ?>" />
 											<small id="error_end_date" class="form-text" style="color:red;"><?php echo errorMsg("end_date"); ?></small>
 										</div>
@@ -92,7 +94,7 @@
 		
 		if(commission_recipient_id == "")
 		{
-			document.getElementById("error_commission_recipient_id").innerHTML = "Provision Empfänger is required.";
+			document.getElementById("error_commission_recipient_id").innerHTML = "Provisionsempfänger ist erforderlich.";
 			flag = false;
 		}
 		else
@@ -102,7 +104,7 @@
 		
 		if(start_date == "")
 		{
-			document.getElementById("error_start_date").innerHTML = "Zeitraum beginn is required.";
+			document.getElementById("error_start_date").innerHTML = "Zeitraum Beginn ist erforderlich.";
 			flag = false;
 		}
 		else
@@ -112,7 +114,7 @@
 		
 		if(end_date == "")
 		{
-			document.getElementById("error_end_date").innerHTML = "Zeitraum ende is required.";
+			document.getElementById("error_end_date").innerHTML = "Zeitraum Ende ist erforderlich.";
 			flag = false;
 		}
 		else
@@ -123,7 +125,7 @@
 		
 		if(excel_sheet == "")
 		{
-			document.getElementById("error_excel_sheet").innerHTML = "Excel sheet is required.";
+			document.getElementById("error_excel_sheet").innerHTML = "Excel-Datei ist erforderlich.";
 			flag = false;
 		}
 		else

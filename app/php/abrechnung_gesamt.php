@@ -3,6 +3,8 @@
 	
 	afterLogin();
 	$page_title	= "Abrechnung Gesamt";
+	$page_subtitle = "Zeitraum wählen und Excel-Datei hochladen";
+	$page_banner_html = '<a class="btn d" href="' . appUrl('abrechnung_gesamt_list') . '">Gespeicherte Abrechnungen</a>';
 	include_once "include/header.php";
 ?>
 <div class="content-wrapper">
@@ -28,7 +30,7 @@
 								<div class="row">
 									<div class="col-md-4">
 										<div class="form-group">
-											<label for="start_date">Zeitraum beginn</label>
+											<label for="start_date">Zeitraum Beginn</label>
 											<input type="date" id="start_date" name="start_date" class="form-control" value="<?php echo setValue("start_date"); ?>" />
 											<small id="error_start_date" class="form-text" style="color:red;"><?php echo errorMsg("start_date"); ?></small>
 										</div>
@@ -36,7 +38,7 @@
 									
 									<div class="col-md-4">
 										<div class="form-group">
-											<label for="end_date">Zeitraum ende</label>
+											<label for="end_date">Zeitraum Ende</label>
 											<input type="date" id="end_date" name="end_date" class="form-control" value="<?php echo setValue("end_date"); ?>" />
 											<small id="error_end_date" class="form-text" style="color:red;"><?php echo errorMsg("end_date"); ?></small>
 										</div>
@@ -73,7 +75,7 @@
 				
 		if(start_date == "")
 		{
-			document.getElementById("error_start_date").innerHTML = "Zeitraum beginn is required.";
+			document.getElementById("error_start_date").innerHTML = "Zeitraum Beginn ist erforderlich.";
 			flag = false;
 		}
 		else
@@ -83,7 +85,7 @@
 		
 		if(end_date == "")
 		{
-			document.getElementById("error_end_date").innerHTML = "Zeitraum ende is required.";
+			document.getElementById("error_end_date").innerHTML = "Zeitraum Ende ist erforderlich.";
 			flag = false;
 		}
 		else
@@ -94,7 +96,7 @@
 		
 		if(excel_sheet == "")
 		{
-			document.getElementById("error_excel_sheet").innerHTML = "Excel sheet is required.";
+			document.getElementById("error_excel_sheet").innerHTML = "Excel-Datei ist erforderlich.";
 			flag = false;
 		}
 		else
