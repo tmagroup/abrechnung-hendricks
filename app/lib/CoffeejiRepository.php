@@ -301,6 +301,270 @@ class CoffeejiRepository
 		);
 	}
 
+	public function webhookHashAccepted(string $hash): bool
+	{
+		$rows = $this->fetchAll(
+			$this->db(),
+			"SELECT id FROM cj_webhook_events WHERE payload_hash = ? AND processed_status = 'accepted' LIMIT 1",
+			's',
+			array($hash)
+		);
+
+		return $rows !== array();
+	}
+
+	public function insertWebhookEvent(
+		string $eventType,
+		string $deviceId,
+		string $deviceNo,
+		string $orderNo,
+		string $payloadJson,
+		string $payloadHash,
+		string $processedStatus,
+		?string $errorMessage
+	): int {
+		$db = $this->db();
+		$received = gmdate('Y-m-d H:i:s');
+		$processedAt = $processedStatus === 'received' ? null : $received;
+		$error = $errorMessage === null ? null : self::clip(CoffeejiLogger::redact($errorMessage), 240);
+		$stmt = $db->prepare('INSERT INTO cj_webhook_events (
+				event_type, device_id, device_no, order_no, payload_json, payload_hash,
+				received_at, processed_status, processed_at, error_message
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+		if (!$stmt) {
+			throw new CoffeejiException('Webhook-Ereignis konnte nicht gespeichert werden.');
+		}
+		$eventType = self::clip($eventType, 32);
+		$deviceId = self::nullIfEmpty(self::clip($deviceId, 32));
+		$deviceNo = self::nullIfEmpty(self::clip($deviceNo, 64));
+		$orderNo = self::nullIfEmpty(self::clip($orderNo, 80));
+		$stmt->bind_param(
+			'ssssssssss',
+			$eventType,
+			$deviceId,
+			$deviceNo,
+			$orderNo,
+			$payloadJson,
+			$payloadHash,
+			$received,
+			$processedStatus,
+			$processedAt,
+			$error
+		);
+		$ok = $stmt->execute();
+		$id = (int) $stmt->insert_id;
+		$stmt->close();
+		if (!$ok || $id < 1) {
+			throw new CoffeejiException('Webhook-Ereignis konnte nicht gespeichert werden.');
+		}
+
+		return $id;
+	}
+
+	public function markWebhookEvent(int $id, string $status, ?string $errorMessage): void
+	{
+		$error = $errorMessage === null ? null : self::clip(CoffeejiLogger::redact($errorMessage), 240);
+		$now = gmdate('Y-m-d H:i:s');
+		$this->execute(
+			$this->db(),
+			'UPDATE cj_webhook_events SET processed_status = ?, processed_at = ?, error_message = ? WHERE id = ?',
+			'sssi',
+			array(self::clip($status, 32), $now, $error, $id)
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $fields
+	 */
+	public function applyWebhookDevice(string $deviceId, string $deviceNo, array $fields): void
+	{
+		$deviceId = self::clip(trim($deviceId), 32);
+		$deviceNo = self::clip(trim($deviceNo), 64);
+		if ($deviceId === '' && $deviceNo === '') {
+			return;
+		}
+		$db = $this->db();
+		$row = null;
+		if ($deviceId !== '') {
+			$found = $this->fetchAll($db, 'SELECT id FROM cj_devices WHERE id = ? LIMIT 1', 's', array($deviceId));
+			$row = $found[0] ?? null;
+		}
+		if ($row === null && $deviceNo !== '') {
+			$found = $this->fetchAll($db, 'SELECT id FROM cj_devices WHERE device_no = ? ORDER BY updated_at DESC LIMIT 1', 's', array($deviceNo));
+			$row = $found[0] ?? null;
+		}
+
+		if ($row === null) {
+			if ($deviceId === '') {
+				return;
+			}
+			$run = array_key_exists('device_run_status', $fields) && $fields['device_run_status'] !== null ? (string) $fields['device_run_status'] : null;
+			$exception = array_key_exists('exception_remark', $fields) ? (string) $fields['exception_remark'] : '';
+			$scarce = array_key_exists('scarce_status', $fields) && $fields['scarce_status'] !== null ? (string) $fields['scarce_status'] : null;
+			$scarceRemark = array_key_exists('scarce_remark', $fields) ? (string) $fields['scarce_remark'] : '';
+			$this->execute(
+				$db,
+				'INSERT INTO cj_devices (
+					id, device_no, name, device_run_status, exception_remark, scarce_status, scarce_remark, created_at, updated_at
+				) VALUES (?, ?, \'\', ?, ?, ?, ?, NOW(), NOW())',
+				'ssssss',
+				array($deviceId, $deviceNo, $run, $exception, $scarce, $scarceRemark)
+			);
+
+			return;
+		}
+
+		$sets = array();
+		$types = '';
+		$params = array();
+		if (array_key_exists('device_run_status', $fields)) {
+			$sets[] = 'device_run_status = ?';
+			$types .= 's';
+			$params[] = $fields['device_run_status'] === null ? null : (string) $fields['device_run_status'];
+		}
+		if (array_key_exists('exception_remark', $fields)) {
+			$sets[] = 'exception_remark = ?';
+			$types .= 's';
+			$params[] = (string) $fields['exception_remark'];
+		}
+		if (array_key_exists('scarce_status', $fields)) {
+			$sets[] = 'scarce_status = ?';
+			$types .= 's';
+			$params[] = $fields['scarce_status'] === null ? null : (string) $fields['scarce_status'];
+		}
+		if (array_key_exists('scarce_remark', $fields)) {
+			$sets[] = 'scarce_remark = ?';
+			$types .= 's';
+			$params[] = (string) $fields['scarce_remark'];
+		}
+		if ($deviceNo !== '') {
+			$sets[] = 'device_no = ?';
+			$types .= 's';
+			$params[] = $deviceNo;
+		}
+		if ($sets === array()) {
+			return;
+		}
+		$sets[] = 'updated_at = NOW()';
+		$types .= 's';
+		$params[] = (string) $row['id'];
+		$this->execute($db, 'UPDATE cj_devices SET ' . implode(', ', $sets) . ' WHERE id = ?', $types, $params);
+	}
+
+	/**
+	 * @param array<string, mixed> $order
+	 */
+	public function applyWebhookOrder(array $order): void
+	{
+		$orderNo = self::clip(trim((string) ($order['order_no'] ?? '')), 80);
+		if ($orderNo === '') {
+			return;
+		}
+		$db = $this->db();
+		$existing = $this->fetchAll(
+			$db,
+			'SELECT order_no, create_time FROM cj_orders WHERE order_no = ? LIMIT 1',
+			's',
+			array($orderNo)
+		);
+		$payload = $order['payload'] ?? array();
+		if (!is_array($payload)) {
+			$payload = array();
+		}
+		$json = json_encode(CoffeejiResponse::stripSecrets($payload), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		if ($json === false) {
+			$json = '{}';
+		}
+		$deviceId = self::clip(trim((string) ($order['device_id'] ?? '')), 32);
+		$status = (int) ($order['status'] ?? 0);
+		$refund = $order['refund_status'] ?? null;
+		$refundParam = ($refund === null || $refund === '') ? null : (string) (int) $refund;
+		$pay = array_key_exists('pay_amt', $order) && $order['pay_amt'] !== null ? CoffeejiOrder::money($order['pay_amt']) : null;
+		$created = $order['create_time'] ?? null;
+		if ($created !== null) {
+			$created = (string) $created;
+		}
+
+		if ($existing === array()) {
+			$this->execute(
+				$db,
+				'INSERT INTO cj_orders (
+					order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+					pay_way_name, status, refund_status, create_time, time_zone_id, raw_json,
+					synced_at, created_at, updated_at
+				) VALUES (?, ?, \'\', \'\', \'\', 0, ?, \'\', ?, ?, ?, \'UTC+8\', ?, NULL, NOW(), NOW())',
+				'sssisss',
+				array($orderNo, $deviceId, $pay ?? '0.00', $status, $refundParam, $created, $json)
+			);
+
+			return;
+		}
+
+		$sets = array('status = ?', 'raw_json = ?', 'updated_at = NOW()');
+		$types = 'is';
+		$params = array($status, $json);
+		if ($deviceId !== '') {
+			$sets[] = 'device_id = ?';
+			$types .= 's';
+			$params[] = $deviceId;
+		}
+		if ($pay !== null) {
+			$sets[] = 'pay_amt = ?';
+			$types .= 's';
+			$params[] = $pay;
+		}
+		if ($refundParam !== null) {
+			$sets[] = 'refund_status = ?';
+			$types .= 's';
+			$params[] = $refundParam;
+		}
+		$currentCreated = $existing[0]['create_time'] ?? null;
+		if (($currentCreated === null || $currentCreated === '') && $created !== null && $created !== '') {
+			$sets[] = 'create_time = ?';
+			$types .= 's';
+			$params[] = $created;
+		}
+		$types .= 's';
+		$params[] = $orderNo;
+		$this->execute($db, 'UPDATE cj_orders SET ' . implode(', ', $sets) . ' WHERE order_no = ?', $types, $params);
+	}
+
+	/**
+	 * @return array<string, array<string, string>>
+	 */
+	public function latestWebhookAlerts(): array
+	{
+		if (!$this->tableExists('cj_webhook_events')) {
+			return array();
+		}
+		$rows = $this->fetchAll(
+			$this->db(),
+			"SELECT e.device_id, e.event_type, e.received_at
+			FROM cj_webhook_events e
+			INNER JOIN (
+				SELECT device_id, event_type, MAX(id) AS max_id
+				FROM cj_webhook_events
+				WHERE event_type IN ('device_fault', 'material_alarm')
+					AND processed_status IN ('accepted', 'duplicate')
+					AND device_id IS NOT NULL
+					AND device_id <> ''
+				GROUP BY device_id, event_type
+			) latest ON latest.max_id = e.id",
+			'',
+			array()
+		);
+		$out = array();
+		foreach ($rows as $row) {
+			$local = CoffeejiTime::utcStoredToLocal((string) ($row['received_at'] ?? ''));
+			if ($local === null) {
+				continue;
+			}
+			$out[(string) $row['device_id']][(string) $row['event_type']] = $local;
+		}
+
+		return $out;
+	}
+
 	/**
 	 * @param array<string, mixed> $order
 	 */
@@ -409,6 +673,51 @@ class CoffeejiRepository
 		);
 		$stmt->execute();
 		$stmt->close();
+	}
+
+	private function tableExists(string $name): bool
+	{
+		$rows = $this->fetchAll(
+			$this->db(),
+			'SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+			'ss',
+			array(DB_NAME, $name)
+		);
+
+		return isset($rows[0]['c']) && (int) $rows[0]['c'] === 1;
+	}
+
+	/**
+	 * @param list<mixed> $params
+	 */
+	private function execute(mysqli $db, string $sql, string $types, array $params): void
+	{
+		$stmt = $db->prepare($sql);
+		if (!$stmt) {
+			throw new CoffeejiException('Die Speicherung ist fehlgeschlagen.');
+		}
+		if ($types !== '' && $params !== array()) {
+			$stmt->bind_param($types, ...$params);
+		}
+		$ok = $stmt->execute();
+		$stmt->close();
+		if (!$ok) {
+			throw new CoffeejiException('Die Speicherung ist fehlgeschlagen.');
+		}
+	}
+
+	private static function clip(string $value, int $max): string
+	{
+		if (strlen($value) <= $max) {
+			return $value;
+		}
+
+		return substr($value, 0, $max);
+	}
+
+	private static function nullIfEmpty(string $value): ?string
+	{
+		return $value === '' ? null : $value;
 	}
 
 	private function db(): mysqli

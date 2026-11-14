@@ -37,6 +37,7 @@ jobs:
       - name: Syntaxprüfung
         run: |
           php -l index.php
+          php -l coffeeji_webhook.php
           find app tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Tests
         run: vendor/bin/phpunit

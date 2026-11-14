@@ -19,6 +19,16 @@
 			require_once(APP_FOLDER.'/'.CONFIG_FOLDER.'/'.FUNCTION_FOLDER."/$file");
 		}	
 	}
+
+	$hcWebhookPath = '';
+	if (isset($_SERVER['PATH_INFO'])) {
+		$hcWebhookParts = explode('/', trim((string) $_SERVER['PATH_INFO'], '/'));
+		$hcWebhookPath = (string) ($hcWebhookParts[0] ?? '');
+	}
+	if ($hcWebhookPath === 'coffeeji_webhook' && function_exists('coffeeji_webhook_dispatch')) {
+		coffeeji_webhook_dispatch();
+		exit;
+	}
 	
 	if($default_file == "")
 	{

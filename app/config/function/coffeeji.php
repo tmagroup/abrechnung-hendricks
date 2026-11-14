@@ -15,6 +15,7 @@ require_once __DIR__ . '/../../lib/CoffeejiClient.php';
 require_once __DIR__ . '/../../lib/CoffeejiRepository.php';
 require_once __DIR__ . '/../../lib/CoffeejiSync.php';
 require_once __DIR__ . '/../../lib/CoffeejiReadModel.php';
+require_once __DIR__ . '/../../lib/CoffeejiWebhook.php';
 
 if (!defined('DB_HOSTNAME')) {
 	define('DB_HOSTNAME', (string) ($db_hostname ?? 'localhost'));
@@ -41,6 +42,70 @@ if (!defined('COFFEEJI_BASE_URL')) {
 }
 if (!defined('COFFEEJI_LOG')) {
 	define('COFFEEJI_LOG', dirname(__DIR__, 3) . '/storage/logs/coffeeji.log');
+}
+
+$hcWebhookTokenEnv = getenv('COFFEEJI_WEBHOOK_TOKEN');
+$hcWebhookIpsEnv = getenv('COFFEEJI_WEBHOOK_IPS');
+$hcWebhookMaxEnv = getenv('COFFEEJI_WEBHOOK_MAX_BYTES');
+$hcWebhookToken = ($hcWebhookTokenEnv !== false && $hcWebhookTokenEnv !== '') ? $hcWebhookTokenEnv : (isset($coffeeji_webhook_token) ? (string) $coffeeji_webhook_token : '');
+if ($hcWebhookIpsEnv !== false && $hcWebhookIpsEnv !== '') {
+	$hcWebhookIps = $hcWebhookIpsEnv;
+} elseif (isset($coffeeji_webhook_ips) && is_array($coffeeji_webhook_ips)) {
+	$hcWebhookIps = implode(',', $coffeeji_webhook_ips);
+} else {
+	$hcWebhookIps = isset($coffeeji_webhook_ips) ? (string) $coffeeji_webhook_ips : '';
+}
+$hcWebhookMax = ($hcWebhookMaxEnv !== false && $hcWebhookMaxEnv !== '') ? (int) $hcWebhookMaxEnv : (isset($coffeeji_webhook_max_bytes) ? (int) $coffeeji_webhook_max_bytes : CoffeejiWebhook::DEFAULT_MAX_BYTES);
+if (!defined('COFFEEJI_WEBHOOK_TOKEN')) {
+	define('COFFEEJI_WEBHOOK_TOKEN', $hcWebhookToken);
+}
+if (!defined('COFFEEJI_WEBHOOK_IPS')) {
+	define('COFFEEJI_WEBHOOK_IPS', $hcWebhookIps);
+}
+if (!defined('COFFEEJI_WEBHOOK_MAX_BYTES')) {
+	define('COFFEEJI_WEBHOOK_MAX_BYTES', CoffeejiWebhook::normalizeMaxBytes($hcWebhookMax));
+}
+
+function coffeeji_webhook_dispatch(): void
+{
+	while (ob_get_level() > 0) {
+		ob_end_clean();
+	}
+	$max = defined('COFFEEJI_WEBHOOK_MAX_BYTES') ? (int) COFFEEJI_WEBHOOK_MAX_BYTES : CoffeejiWebhook::DEFAULT_MAX_BYTES;
+	$length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+	$raw = '';
+	if ($length <= $max) {
+		$stream = fopen('php://input', 'rb');
+		if ($stream !== false) {
+			$read = stream_get_contents($stream, $max + 1);
+			$raw = $read === false ? '' : $read;
+			fclose($stream);
+		}
+	}
+	$token = defined('COFFEEJI_WEBHOOK_TOKEN') ? (string) COFFEEJI_WEBHOOK_TOKEN : '';
+	$ips = defined('COFFEEJI_WEBHOOK_IPS') ? (string) COFFEEJI_WEBHOOK_IPS : '';
+	$log = defined('COFFEEJI_LOG') ? COFFEEJI_LOG : dirname(__DIR__, 3) . '/storage/logs/coffeeji.log';
+	$webhook = new CoffeejiWebhook(
+		new CoffeejiWebhookConfig($token, CoffeejiWebhook::parseIpList($ips), $max),
+		new CoffeejiRepository(),
+		new CoffeejiLogger($log)
+	);
+	$result = $webhook->handle(
+		(string) ($_SERVER['REQUEST_METHOD'] ?? ''),
+		$raw,
+		$_GET,
+		$_SERVER
+	);
+	coffeeji_webhook_emit($result->status, $result->body);
+}
+
+function coffeeji_webhook_emit(int $status, string $body): void
+{
+	http_response_code($status);
+	header('Content-Type: application/json; charset=utf-8');
+	header('X-Content-Type-Options: nosniff');
+	header('Cache-Control: no-store');
+	echo $body;
 }
 
 function coffeeji_configured(): bool
@@ -408,10 +473,11 @@ function hc_machine_card(array $device): string
 			}
 			$html .= hc_h($line['text']) . '</div>';
 		}
+		$html .= hc_webhook_line($device, $tone[0]);
 		$html .= '</div></div>';
 	} else {
 		$quiet = $tone[0] === 'gruen' ? 'Keine Störung gemeldet.' : $tone[1];
-		$html .= '<div class="eb ' . hc_h($tone[0]) . '">' . hc_icon('alert', 17) . '<div><div>' . hc_h($quiet) . '</div></div></div>';
+		$html .= '<div class="eb ' . hc_h($tone[0]) . '">' . hc_icon('alert', 17) . '<div><div>' . hc_h($quiet) . '</div>' . hc_webhook_line($device, $tone[0]) . '</div></div>';
 	}
 	$materials = $device['materials'] ?? array();
 	if ($materials === array()) {
@@ -426,6 +492,18 @@ function hc_machine_card(array $device): string
 	$html .= '</article>';
 
 	return $html;
+}
+
+/**
+ * @param array<string, mixed> $device
+ */
+function hc_webhook_line(array $device, string $tone): string
+{
+	if ($tone === 'gruen' || empty($device['webhook_at'])) {
+		return '';
+	}
+
+	return '<div>Letzter Webhook · ' . hc_h(hc_clock((string) $device['webhook_at'], true)) . '</div>';
 }
 
 /**

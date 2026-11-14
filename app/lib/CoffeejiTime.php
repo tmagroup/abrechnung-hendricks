@@ -58,6 +58,40 @@ class CoffeejiTime
 	}
 
 	/**
+	 * Webhook-Zeitstempel: Millisekunden sind absolut, Datumsangaben ohne Zone sind UTC+8.
+	 */
+	public static function storeWebhook(mixed $value): ?string
+	{
+		if (is_string($value)) {
+			$raw = trim($value);
+			if ($raw !== '' && preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/', $raw) === 1 && preg_match('/(?:[zZ]|[+\-]\d{2}:?\d{2})$/', $raw) !== 1) {
+				try {
+					$dt = new DateTimeImmutable($raw, new DateTimeZone('Asia/Shanghai'));
+				} catch (Exception $e) {
+					return null;
+				}
+
+				return $dt->setTimezone(self::zone())->format('Y-m-d H:i:s');
+			}
+		}
+
+		return self::store($value);
+	}
+
+	public static function utcStoredToLocal(?string $utc): ?string
+	{
+		if ($utc === null || trim($utc) === '') {
+			return null;
+		}
+		$dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', trim($utc), new DateTimeZone('UTC'));
+		if (!$dt) {
+			return null;
+		}
+
+		return $dt->setTimezone(self::zone())->format('Y-m-d H:i:s');
+	}
+
+	/**
 	 * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
 	 */
 	public static function window(string $mode, ?DateTimeImmutable $now = null): array

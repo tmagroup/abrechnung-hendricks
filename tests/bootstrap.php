@@ -13,3 +13,5 @@ require_once __DIR__ . '/../app/lib/CoffeejiRevenue.php';
 require_once __DIR__ . '/../app/lib/CoffeejiClient.php';
 require_once __DIR__ . '/../app/lib/CoffeejiRepository.php';
 require_once __DIR__ . '/../app/lib/CoffeejiSync.php';
+require_once __DIR__ . '/../app/lib/CoffeejiReadModel.php';
+require_once __DIR__ . '/../app/lib/CoffeejiWebhook.php';
