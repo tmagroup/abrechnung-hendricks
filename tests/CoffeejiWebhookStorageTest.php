@@ -200,6 +200,98 @@ final class CoffeejiWebhookStorageTest extends TestCase
 		$this->assertNull($row['refund_status']);
 	}
 
+	public function testWebhookOrderKeepsPortalColumnsAndWritesThemWhenPresent(): void
+	{
+		$this->runPortalMigration();
+		$repository = new CoffeejiRepository();
+		$this->assertTrue($repository->orderDetailsReady());
+		$this->repository = $repository;
+
+		$mysqli = $this->mysqli();
+		$stmt = $mysqli->prepare('INSERT INTO cj_orders (
+			order_no, device_id, goods_name, price, pay_amt, pay_way_name, pay_way, status,
+			refund_status, out_stock_status, create_time, out_stock_time, refund_time, fail_remark,
+			raw_json, created_at, updated_at
+		) VALUES (?, ?, ?, 4.00, 4.00, ?, ?, 2, NULL, 2, ?, ?, NULL, ?, ?, NOW(), NOW())');
+		$this->assertInstanceOf(mysqli_stmt::class, $stmt);
+		$no = 'TEST-WH-PORTAL';
+		$device = '9000000000000000206';
+		$goods = 'Hausmischung';
+		$wayName = 'Karte';
+		$payWay = '3';
+		$created = '2026-11-14 10:00:00';
+		$outTime = '2026-11-14 10:05:00';
+		$fail = 'bleibt';
+		$raw = json_encode(array(
+			'order_no' => $no,
+			'goods_name' => $goods,
+			'pay_way' => 3,
+			'out_stock_status' => 2,
+			'out_stock_time' => $outTime,
+			'fail_remark' => $fail,
+		), JSON_UNESCAPED_UNICODE);
+		$this->assertIsString($raw);
+		$stmt->bind_param('sssssssss', $no, $device, $goods, $wayName, $payWay, $created, $outTime, $fail, $raw);
+		$this->assertTrue($stmt->execute());
+		$stmt->close();
+		mysqli_close($mysqli);
+
+		$statusOnly = $this->post(array(
+			'deviceId' => $device,
+			'deviceNo' => 'WHTESTPORTAL0001',
+			'orderNo' => $no,
+			'orderStatus' => 1,
+			'payAmount' => 4.5,
+			'timeStamp' => 1700000000000,
+		));
+		$this->assertSame(CoffeejiWebhook::SUCCESS_BODY, $statusOnly->body);
+		$kept = $this->portalOrder($no);
+		$this->assertSame(1, (int) $kept['status']);
+		$this->assertSame('4.50', number_format((float) $kept['pay_amt'], 2, '.', ''));
+		$this->assertSame('Hausmischung', $kept['goods_name']);
+		$this->assertSame('3', (string) $kept['pay_way']);
+		$this->assertSame('2', (string) $kept['out_stock_status']);
+		$this->assertSame($outTime, (string) $kept['out_stock_time']);
+		$this->assertSame($fail, (string) $kept['fail_remark']);
+		$this->assertStringContainsString('"orderStatus":1', (string) $kept['raw_json']);
+		$this->assertStringContainsString('"out_stock_status":2', (string) $kept['raw_json']);
+
+		$createdNew = $this->post(array(
+			'deviceId' => $device,
+			'deviceNo' => 'WHTESTPORTAL0001',
+			'orderNo' => 'TEST-WH-PORTAL-NEW',
+			'orderStatus' => 1,
+			'payAmount' => 2.2,
+			'payWay' => 2,
+			'outStockStatus' => 1,
+			'outStockTime' => '2026-11-14 21:53:10',
+			'refundTime' => '2026-11-14 22:00:00',
+			'failRemark' => 'Becher leer',
+			'timeStamp' => 1700000000000,
+		));
+		$this->assertSame(CoffeejiWebhook::SUCCESS_BODY, $createdNew->body);
+		$fresh = $this->portalOrder('TEST-WH-PORTAL-NEW');
+		$this->assertSame(1, (int) $fresh['status']);
+		$this->assertSame('2', (string) $fresh['pay_way']);
+		$this->assertSame('1', (string) $fresh['out_stock_status']);
+		$this->assertSame('2026-11-14 21:53:10', (string) $fresh['out_stock_time']);
+		$this->assertSame('2026-11-14 22:00:00', (string) $fresh['refund_time']);
+		$this->assertSame('Becher leer', (string) $fresh['fail_remark']);
+
+		$later = $this->post(array(
+			'deviceId' => $device,
+			'orderNo' => 'TEST-WH-PORTAL-NEW',
+			'orderStatus' => 2,
+			'timeStamp' => 1700000001000,
+		));
+		$this->assertSame(CoffeejiWebhook::SUCCESS_BODY, $later->body);
+		$after = $this->portalOrder('TEST-WH-PORTAL-NEW');
+		$this->assertSame(2, (int) $after['status']);
+		$this->assertSame('2', (string) $after['pay_way']);
+		$this->assertSame('1', (string) $after['out_stock_status']);
+		$this->assertSame('Becher leer', (string) $after['fail_remark']);
+	}
+
 	public function testInvalidBodyIsStoredWithoutSecrets(): void
 	{
 		$result = $this->postRaw('kein-json {"devicePwd":"' . self::SECRET . '"} token=' . self::TOKEN);
@@ -336,6 +428,42 @@ final class CoffeejiWebhookStorageTest extends TestCase
 		$this->assertArrayHasKey(0, $rows);
 
 		return $rows[0];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function portalOrder(string $orderNo): array
+	{
+		$rows = $this->rows(
+			"SELECT order_no, goods_name, pay_amt, status, pay_way, out_stock_status, out_stock_time, refund_time, fail_remark, raw_json
+			FROM cj_orders WHERE order_no = '" . $orderNo . "'"
+		);
+		$this->assertArrayHasKey(0, $rows);
+
+		return $rows[0];
+	}
+
+	private function runPortalMigration(): void
+	{
+		$mysqli = $this->mysqli();
+		$sql = (string) file_get_contents(dirname(__DIR__) . '/app/db/migrations/20261115_coffeeji_orders_portal.sql');
+		$parts = preg_split("/;\\s*\\n/", $sql) ?: array();
+		foreach ($parts as $part) {
+			$statement = trim($part);
+			if ($statement === '') {
+				continue;
+			}
+			$result = mysqli_query($mysqli, $statement);
+			$this->assertNotFalse($result, mysqli_error($mysqli));
+			if ($result instanceof mysqli_result) {
+				mysqli_free_result($result);
+			}
+		}
+		mysqli_close($mysqli);
 	}
 
 	/**

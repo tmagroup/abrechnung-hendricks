@@ -29,12 +29,12 @@
 	<div class="tile hero">
 		<div class="l"><span class="bl"><?php echo hc_icon('euro', 18); ?></span>Umsatz heute</div>
 		<div class="v" id="live-sum"><?php echo hc_money((float) $bundle['sales']['amount']); ?></div>
-		<div class="d"><span>nur ausgegebene Verkäufe</span></div>
+		<div class="d"><span>Herstellung und fertig</span></div>
 	</div>
 	<div class="tile">
-		<div class="l"><span class="bl"><?php echo hc_icon('cart', 18); ?></span>Ausgegebene Verkäufe</div>
+		<div class="l"><span class="bl"><?php echo hc_icon('cart', 18); ?></span>Verkäufe heute</div>
 		<div class="v" id="live-count"><?php echo (int) $bundle['sales']['count']; ?></div>
-		<div class="d"><span>Status fertig</span></div>
+		<div class="d"><span id="live-open"><?php echo (int) $bundle['sales']['open'] > 0 ? (int) $bundle['sales']['open'] . ' offen' : 'Herstellung und fertig'; ?></span></div>
 	</div>
 </div>
 <form class="filter-row" method="get" action="<?php echo appUrl('live_verkaeufe'); ?>">
@@ -50,7 +50,7 @@
 	<button class="btn d" type="submit">Filtern</button>
 </form>
 <div class="panel">
-	<div class="ph"><div><h3>Bestellungen von heute</h3><small>Alle Status, Umsatz zählt nur ausgegebene Verkäufe</small></div></div>
+	<div class="ph"><div><h3>Bestellungen von heute</h3><small>Alle Status. Umsatz zählt Herstellung und fertig, offene Bestellungen sind markiert.</small></div></div>
 	<div id="live-list"><?php echo hc_render_live_table($bundle['orders']); ?></div>
 </div>
 <script>
@@ -60,6 +60,7 @@
 			$('#live-list').html(data.html);
 			$('#live-sum').text(data.sum);
 			$('#live-count').text(data.count);
+			if (data.open) { $('#live-open').text(data.open); }
 			$('#live-stamp').text(data.updated);
 		});
 	}, 30000);

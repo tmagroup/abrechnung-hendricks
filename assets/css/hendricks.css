@@ -653,6 +653,64 @@ table.dataTable.no-footer { border-bottom: 0 !important; }
 .hc-step.active .step-num { background: var(--gold); color: #2a1a14; }
 
 .hc-foot { margin-top: 28px; color: var(--mut); font-size: 12px; }
+.hc-filters {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(160px, 1fr));
+	gap: 12px 14px;
+	align-items: end;
+	margin-bottom: 18px;
+}
+.hc-filters label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 11px;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+	color: var(--mut);
+	font-weight: 700;
+}
+.hc-filters .form-control { width: 100%; }
+.hc-actions { display: flex; gap: 8px; align-items: center; }
+.hc-scroll { overflow-x: auto; }
+.hc-dense th, .hc-dense td { font-size: 12.5px; padding: 10px 8px; white-space: nowrap; }
+.hc-dense td.clip { white-space: normal; min-width: 180px; max-width: 260px; }
+.pager {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	margin-top: 14px;
+	color: var(--mut);
+	font-size: 13px;
+}
+.pager a, .pager span.on, .pager span.gap {
+	min-width: 32px;
+	text-align: center;
+	padding: 6px 8px;
+	border-radius: 4px;
+}
+.pager a, .pager span.on {
+	border: 1px solid var(--line);
+	background: #fff;
+	color: var(--bordd);
+	font-weight: 700;
+}
+.pager span.on { background: var(--bord); color: #fff; border-color: var(--bord); }
+.pager select {
+	margin-left: 6px;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	padding: 6px 8px;
+	background: #fff;
+	color: var(--ink);
+}
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
+.seg a { padding: 8px 12px; color: var(--bordd); font-weight: 700; font-size: 13px; }
+.seg a.on { background: var(--bord); color: #fff; }
+.prod .pay { width: 92px; text-align: right; font-weight: 800; color: var(--ink); }
+.chip.wait { margin-left: 6px; }
 .filter-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin-bottom: 14px; }
 .filter-row label { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--mut); }
 .soon {
@@ -728,6 +786,7 @@ body.hc-login {
 	body.nav-open .side { transform: none; }
 	.main { margin-left: 0; padding: 72px 16px 32px; }
 	.tiles { grid-template-columns: 1fr; }
+	.hc-filters { grid-template-columns: 1fr; }
 	.top { flex-direction: column; }
 	.top .r { margin-left: 0; }
 	.hc-steps { flex-direction: column; }

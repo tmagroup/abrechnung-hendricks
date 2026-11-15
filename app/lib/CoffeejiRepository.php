@@ -6,6 +6,8 @@ class CoffeejiRepository
 {
 	private ?mysqli $db = null;
 
+	private ?bool $orderDetails = null;
+
 	public function tablesReady(): bool
 	{
 		$db = $this->db();
@@ -253,14 +255,18 @@ class CoffeejiRepository
 			}
 		}
 		$existing = array();
+		$details = $this->orderDetailsReady();
 		if ($numbers !== array()) {
 			$placeholders = implode(',', array_fill(0, count($numbers), '?'));
 			$types = str_repeat('s', count($numbers));
+			$columns = 'order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+					pay_way_name, status, refund_status, create_time, time_zone_id';
+			if ($details) {
+				$columns .= ', pay_way, out_stock_status, out_stock_time, refund_time, fail_remark';
+			}
 			$rows = $this->fetchAll(
 				$this->db(),
-				"SELECT order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
-					pay_way_name, status, refund_status, create_time, time_zone_id
-				FROM cj_orders WHERE order_no IN ($placeholders)",
+				"SELECT $columns FROM cj_orders WHERE order_no IN ($placeholders)",
 				$types,
 				array_values($numbers)
 			);
@@ -269,7 +275,7 @@ class CoffeejiRepository
 			}
 		}
 
-		$plan = CoffeejiUpsert::plan($existing, $orders);
+		$plan = CoffeejiUpsert::plan($existing, $orders, $details);
 		foreach ($plan['insert'] as $order) {
 			$this->insertOrder($order);
 		}
@@ -289,13 +295,18 @@ class CoffeejiRepository
 	 */
 	public function ordersBetween(DateTimeImmutable $from, DateTimeImmutable $to): array
 	{
+		$columns = 'order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+				pay_way_name, status, refund_status, create_time, time_zone_id';
+		if ($this->orderDetailsReady()) {
+			$columns .= ', out_stock_status';
+		}
+
 		return $this->fetchAll(
 			$this->db(),
-			'SELECT order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
-				pay_way_name, status, refund_status, create_time, time_zone_id
+			"SELECT $columns
 			FROM cj_orders
 			WHERE create_time >= ? AND create_time < ?
-			ORDER BY create_time DESC',
+			ORDER BY create_time DESC",
 			'ss',
 			array($from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s'))
 		);
@@ -463,7 +474,7 @@ class CoffeejiRepository
 		$db = $this->db();
 		$existing = $this->fetchAll(
 			$db,
-			'SELECT order_no, create_time FROM cj_orders WHERE order_no = ? LIMIT 1',
+			'SELECT order_no, create_time, raw_json FROM cj_orders WHERE order_no = ? LIMIT 1',
 			's',
 			array($orderNo)
 		);
@@ -471,10 +482,8 @@ class CoffeejiRepository
 		if (!is_array($payload)) {
 			$payload = array();
 		}
-		$json = json_encode(CoffeejiResponse::stripSecrets($payload), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-		if ($json === false) {
-			$json = '{}';
-		}
+		$currentRaw = isset($existing[0]['raw_json']) && is_string($existing[0]['raw_json']) ? $existing[0]['raw_json'] : null;
+		$json = self::mergeWebhookRaw($currentRaw, $payload);
 		$deviceId = self::clip(trim((string) ($order['device_id'] ?? '')), 32);
 		$status = (int) ($order['status'] ?? 0);
 		$refund = $order['refund_status'] ?? null;
@@ -484,8 +493,38 @@ class CoffeejiRepository
 		if ($created !== null) {
 			$created = (string) $created;
 		}
+		$details = $this->orderDetailsReady();
+		$portal = self::webhookPortalFields($payload);
 
 		if ($existing === array()) {
+			if ($details) {
+				$this->execute(
+					$db,
+					'INSERT INTO cj_orders (
+						order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+						pay_way_name, status, refund_status, create_time, time_zone_id,
+						pay_way, out_stock_status, out_stock_time, refund_time, fail_remark, raw_json,
+						synced_at, created_at, updated_at
+					) VALUES (?, ?, \'\', \'\', \'\', 0, ?, \'\', ?, ?, ?, \'UTC+8\', ?, ?, ?, ?, ?, ?, NULL, NOW(), NOW())',
+					'sssissssssss',
+					array(
+						$orderNo,
+						$deviceId,
+						$pay ?? '0.00',
+						$status,
+						$refundParam,
+						$created,
+						$portal['pay_way'] ?? null,
+						$portal['out_stock_status'] ?? null,
+						$portal['out_stock_time'] ?? null,
+						$portal['refund_time'] ?? null,
+						$portal['fail_remark'] ?? null,
+						$json,
+					)
+				);
+
+				return;
+			}
 			$this->execute(
 				$db,
 				'INSERT INTO cj_orders (
@@ -503,6 +542,16 @@ class CoffeejiRepository
 		$sets = array('status = ?', 'raw_json = ?', 'updated_at = NOW()');
 		$types = 'is';
 		$params = array($status, $json);
+		if ($details) {
+			foreach (array('pay_way', 'out_stock_status', 'out_stock_time', 'refund_time', 'fail_remark') as $column) {
+				if (!array_key_exists($column, $portal)) {
+					continue;
+				}
+				$sets[] = $column . ' = ?';
+				$types .= 's';
+				$params[] = $portal[$column];
+			}
+		}
 		if ($deviceId !== '') {
 			$sets[] = 'device_id = ?';
 			$types .= 's';
@@ -565,11 +614,39 @@ class CoffeejiRepository
 		return $out;
 	}
 
+	public function orderDetailsReady(): bool
+	{
+		if ($this->orderDetails !== null) {
+			return $this->orderDetails;
+		}
+		$rows = $this->fetchAll(
+			$this->db(),
+			'SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+				WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+			'sss',
+			array(DB_NAME, 'cj_orders', 'out_stock_status')
+		);
+
+		$this->orderDetails = isset($rows[0]['c']) && (int) $rows[0]['c'] === 1;
+
+		return $this->orderDetails;
+	}
+
 	/**
 	 * @param array<string, mixed> $order
 	 */
 	private function insertOrder(array $order): void
 	{
+		if ($this->orderDetailsReady()) {
+			$sql = 'INSERT INTO cj_orders (
+					order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+					pay_way_name, status, refund_status, create_time, time_zone_id,
+					pay_way, out_stock_status, out_stock_time, refund_time, fail_remark, raw_json,
+					synced_at, created_at, updated_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())';
+			$this->bindOrderDetails($sql, $order, false);
+			return;
+		}
 		$sql = 'INSERT INTO cj_orders (
 				order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
 				pay_way_name, status, refund_status, create_time, time_zone_id, raw_json,
@@ -583,6 +660,16 @@ class CoffeejiRepository
 	 */
 	private function updateOrder(array $order): void
 	{
+		if ($this->orderDetailsReady()) {
+			$sql = 'UPDATE cj_orders SET
+					device_id = ?, device_ext_no = ?, device_name = ?, goods_name = ?, price = ?, pay_amt = ?,
+					pay_way_name = ?, status = ?, refund_status = ?, create_time = ?, time_zone_id = ?,
+					pay_way = ?, out_stock_status = ?, out_stock_time = ?, refund_time = ?, fail_remark = ?, raw_json = ?,
+					synced_at = NOW(), updated_at = NOW()
+				WHERE order_no = ?';
+			$this->bindOrderDetails($sql, $order, true);
+			return;
+		}
 		$sql = 'UPDATE cj_orders SET
 				device_id = ?, device_ext_no = ?, device_name = ?, goods_name = ?, price = ?, pay_amt = ?,
 				pay_way_name = ?, status = ?, refund_status = ?, create_time = ?, time_zone_id = ?, raw_json = ?,
@@ -625,6 +712,94 @@ class CoffeejiRepository
 			$json,
 			$orderNo
 		);
+		$stmt->execute();
+		$stmt->close();
+	}
+
+	/**
+	 * Schreibt die Portal-Spalten mit. Liegt vor bindOrder, damit der bisherige Speichervorgang unverändert bleibt.
+	 *
+	 * @param array<string, mixed> $order
+	 */
+	private function bindOrderDetails(string $sql, array $order, bool $update): void
+	{
+		$db = $this->db();
+		$stmt = $db->prepare($sql);
+		if (!$stmt) {
+			throw new CoffeejiException('Bestellung konnte nicht gespeichert werden.');
+		}
+		$orderNo = (string) $order['order_no'];
+		$deviceId = (string) ($order['device_id'] ?? '');
+		$ext = (string) ($order['device_ext_no'] ?? '');
+		$deviceName = (string) ($order['device_name'] ?? '');
+		$goods = (string) ($order['goods_name'] ?? '');
+		$price = (string) ($order['price'] ?? '0.00');
+		$pay = (string) ($order['pay_amt'] ?? '0.00');
+		$way = (string) ($order['pay_way_name'] ?? '');
+		$status = (int) ($order['status'] ?? 0);
+		$refund = ($order['refund_status'] ?? null) === null || ($order['refund_status'] ?? '') === ''
+			? null
+			: (string) $order['refund_status'];
+		$created = $order['create_time'] ?? null;
+		$zone = (string) ($order['time_zone_id'] ?? '');
+		$payWay = ($order['pay_way'] ?? null) === null || ($order['pay_way'] ?? '') === ''
+			? null
+			: (string) (int) $order['pay_way'];
+		$outStatus = ($order['out_stock_status'] ?? null) === null || ($order['out_stock_status'] ?? '') === ''
+			? null
+			: (string) (int) $order['out_stock_status'];
+		$outTime = $order['out_stock_time'] ?? null;
+		$refundTime = $order['refund_time'] ?? null;
+		$fail = (string) ($order['fail_remark'] ?? '');
+		$json = json_encode(CoffeejiResponse::stripSecrets($order), JSON_UNESCAPED_UNICODE);
+		if ($json === false) {
+			$json = '{}';
+		}
+		if ($update) {
+			$stmt->bind_param(
+				'sssssssissssssssss',
+				$deviceId,
+				$ext,
+				$deviceName,
+				$goods,
+				$price,
+				$pay,
+				$way,
+				$status,
+				$refund,
+				$created,
+				$zone,
+				$payWay,
+				$outStatus,
+				$outTime,
+				$refundTime,
+				$fail,
+				$json,
+				$orderNo
+			);
+		} else {
+			$stmt->bind_param(
+				'ssssssssisssssssss',
+				$orderNo,
+				$deviceId,
+				$ext,
+				$deviceName,
+				$goods,
+				$price,
+				$pay,
+				$way,
+				$status,
+				$refund,
+				$created,
+				$zone,
+				$payWay,
+				$outStatus,
+				$outTime,
+				$refundTime,
+				$fail,
+				$json
+			);
+		}
 		$stmt->execute();
 		$stmt->close();
 	}
@@ -704,6 +879,53 @@ class CoffeejiRepository
 		if (!$ok) {
 			throw new CoffeejiException('Die Speicherung ist fehlgeschlagen.');
 		}
+	}
+
+	/**
+	 * Portal-Felder nur, wenn der Webhook sie mitschickt. Fehlende Schlüssel lassen gespeicherte Spalten stehen.
+	 *
+	 * @param array<string, mixed> $payload
+	 * @return array<string, ?string>
+	 */
+	private static function webhookPortalFields(array $payload): array
+	{
+		$out = array();
+		if (array_key_exists('payWay', $payload) || array_key_exists('pay_way', $payload)) {
+			$value = CoffeejiOrder::nullableInt($payload['payWay'] ?? $payload['pay_way'] ?? null);
+			$out['pay_way'] = $value === null ? null : (string) $value;
+		}
+		if (array_key_exists('outStockStatus', $payload) || array_key_exists('out_stock_status', $payload)) {
+			$value = CoffeejiOrder::nullableInt($payload['outStockStatus'] ?? $payload['out_stock_status'] ?? null);
+			$out['out_stock_status'] = $value === null ? null : (string) $value;
+		}
+		if (array_key_exists('outStockTime', $payload) || array_key_exists('out_stock_time', $payload)) {
+			$out['out_stock_time'] = CoffeejiTime::store($payload['outStockTime'] ?? $payload['out_stock_time'] ?? null);
+		}
+		if (array_key_exists('refundTime', $payload) || array_key_exists('refund_time', $payload)) {
+			$out['refund_time'] = CoffeejiTime::store($payload['refundTime'] ?? $payload['refund_time'] ?? null);
+		}
+		if (array_key_exists('failRemark', $payload) || array_key_exists('fail_remark', $payload)) {
+			$out['fail_remark'] = self::clip(trim((string) ($payload['failRemark'] ?? $payload['fail_remark'] ?? '')), 2000);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed> $payload
+	 */
+	private static function mergeWebhookRaw(?string $current, array $payload): string
+	{
+		$base = array();
+		if ($current !== null && $current !== '') {
+			$decoded = json_decode($current, true);
+			if (is_array($decoded)) {
+				$base = $decoded;
+			}
+		}
+		$json = json_encode(CoffeejiResponse::stripSecrets(array_merge($base, $payload)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+		return $json === false ? '{}' : $json;
 	}
 
 	private static function clip(string $value, int $max): string

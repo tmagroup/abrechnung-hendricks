@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 
 final class CoffeejiRevenueTest extends TestCase
 {
-	public function testOnlyCompletedOrdersInsideTheLocalWindowCount(): void
+	public function testMakingAndCompleteOrdersInsideTheLocalWindowCount(): void
 	{
 		$now = new DateTimeImmutable('2026-11-13 12:35:00', new DateTimeZone('Europe/Berlin'));
 		$orders = array(
@@ -26,11 +26,25 @@ final class CoffeejiRevenueTest extends TestCase
 
 		$summary = CoffeejiRevenue::summarize($filtered, $now);
 
-		$this->assertSame(5.5, $summary['today']['amount']);
-		$this->assertSame(2, $summary['today']['count']);
+		$this->assertSame(14.5, $summary['today']['amount']);
+		$this->assertSame(3, $summary['today']['count']);
+		$this->assertSame(1, $summary['today']['open']);
 		$this->assertSame(1.5, $summary['yesterday_same']['amount']);
+		$this->assertSame(0, $summary['yesterday_same']['open']);
 		$this->assertSame(30, count($summary['chart']));
 		$this->assertSame(0.0, $summary['chart'][0]['amount']);
+		$this->assertSame(14.5, $summary['chart'][29]['amount']);
+
+		$perDevice = CoffeejiRevenue::perDevice($filtered, $window[0], $window[1]);
+		$this->assertSame(16.0, $perDevice['9000000000000000001']['amount']);
+		$this->assertSame(4, $perDevice['9000000000000000001']['count']);
+		$this->assertSame(1, $perDevice['9000000000000000001']['open']);
+
+		$pending = $this->order('G', 2, '1.00', '2026-11-13 10:30:00');
+		$pending['out_stock_status'] = 1;
+		$piece = CoffeejiRevenue::sum(array($pending), $window[0], $window[1]);
+		$this->assertSame(1.0, $piece['amount']);
+		$this->assertSame(1, $piece['open']);
 	}
 
 	public function testBackfillWindowIsThirtyFiveLocalDays(): void

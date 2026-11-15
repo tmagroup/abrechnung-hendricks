@@ -67,7 +67,7 @@ Nichts davon wird vom Repository eingerichtet. `/PFAD` durch das Verzeichnis ers
 - `orders`: heute und gestern, Upsert über `order_no`. Der Datumsfilter der API reicht in den Vorabend hinein, deshalb filtert der Sync das Fenster lokal in Europe/Berlin nach.
 - `orders-backfill`: nächtlicher Abgleich der letzten 35 Tage.
 
-Umsatz auf den neuen Seiten zählt nur Bestellungen mit Status 2 (ausgegeben). Beträge erscheinen als `1.234,50 €`, Uhrzeiten in MEZ.
+Umsatz zählt Bestellungen mit Status 1 (in Herstellung) und 2 (fertig). Offene Bestellungen bleiben in der Summe und sind markiert. Beträge erscheinen als `1.234,50 €`, Uhrzeiten in MEZ.
 
 ## Webhook
 
@@ -84,6 +84,8 @@ Dieselbe Adresse kommt in alle drei URL-Felder im Händlerportal unter Benutzeri
 
 Der Endpunkt verlangt kein Login. Er erkennt den Typ an den Feldern (`deviceRunStatus` und `exceptionRemark`, `deviceScarceStatus` und `scarceRemark`, `orderNo` und `orderStatus`). Jedes Ereignis landet roh in `cj_webhook_events` (Typ, Gerät, Bestellnummer, JSON, Empfangszeit in UTC, Status, SHA-256 zur Duplikaterkennung). `devicePwd` wird vor dem Speichern und vor dem Log entfernt. Danach werden Gerätelaufstatus, Mangelstatus oder der Bestellstatus über `orderNo` idempotent nachgezogen. Fehlende Bestelldetails holt weiter der Cron. Füllstandszahlen holt weiter der Material-Abruf.
 
+Sind `pay_way`, `out_stock_status`, `out_stock_time`, `refund_time` und `fail_remark` schon angelegt, schreibt der Webhook sie nur, wenn das Payload die Schlüssel enthält (`payWay`, `outStockStatus`, `outStockTime`, `refundTime`, `failRemark` oder die Snake-Case-Form). Ein Status-Push ohne diese Felder lässt vorhandene Werte stehen und mischt den Webhook in das bisherige `raw_json`, damit die Portal-Migration weiter daraus nachziehen kann. Fehlen die Spalten, bleibt das bisherige `INSERT`/`UPDATE` auf den Basisfeldern.
+
 Webhook-Status 7 bedeutet erstattet und storniert. In der Bestellliste bedeutet Status 7 „nicht hergestellt“. Der Empfänger schreibt Webhook-7 deshalb als Status 0 mit `refund_status` 1. Der Rohwert 7 bleibt im Payload. Der nächste Bestell-Cron überschreibt `cj_orders.status` mit dem Listenstatus.
 
 Die angenommene Antwort ist immer genau `{"code":200,"success":true,"data":true,"msg":"Success"}`, auch bei einem Duplikat und wenn die nachgelagerte Übernahme in `cj_*` fehlschlägt. In dem Fall bleibt das Ereignis mit Status `error` gespeichert und steht im Log `storage/logs/coffeeji.log`. Ein fehlendes oder falsches Token sowie eine nicht gelistete Absender-IP ergeben HTTP 403, ohne dass etwas gespeichert wird. Die optionale IP-Liste prüft `REMOTE_ADDR`, also die Adresse, die PHP sieht. Leer lassen, solange die Absender von Coffeeji nicht bekannt sind.
@@ -99,7 +101,7 @@ Zuerst auf einer Test-Subdomain, nie als erster Schritt auf der laufenden Abrech
 1. Backup der Datenbank und des bisherigen Verzeichnisses.
 2. Code ausrollen, `app/config/config.php` nicht überschreiben.
 3. `composer install --no-dev` im Projektverzeichnis.
-4. Beide Coffeeji-Migrationen einspielen.
+4. Die Coffeeji-Migrationen in dieser Reihenfolge einspielen, soweit sie auf der Datenbank noch fehlen: `20261113_coffeeji.sql`, `20261114_coffeeji_webhook.sql`, `20261115_coffeeji_orders_portal.sql`.
 5. Coffeeji-Schlüssel setzen, das Webhook-Token erzeugen und die Cron-Zeilen erst nach einem manuellen Probelauf (`php app/cli/coffeeji_sync.php devices`) eintragen.
 6. Die Webhook-URL im Coffeeji-Portal eintragen, nachdem ein POST gegen `/coffeeji_webhook` die Erfolgshülle liefert.
 7. Anmeldung, Dashboard, eine bestehende Abrechnungsseite und ein Excel-Upload prüfen.
@@ -115,3 +117,19 @@ vendor/bin/phpunit
 ```
 
 Die Tests nutzen erfundene Beispielantworten. Echte Umsätze, Bestellungen oder Gerätekennungen gehören nicht ins Repository.
+
+## Bestellverwaltung und Statistik
+
+Im Menü liegen Bestellverwaltung sowie Statistik mit Bestellstatistik, Verkaufsstatistik und Werbestatistik. Die Seiten lesen nur `cj_orders` und `cj_devices`. Es gibt keinen Schreibaufruf an Coffeeji.
+
+Zusätzlich zur ersten Coffeeji-Migration einmalig einspielen:
+
+```bash
+mysql -u abrechnung -p abrechnung < app/db/migrations/20261115_coffeeji_orders_portal.sql
+```
+
+Die Migration ergänzt Zahlart-Code, Ausgabestatus, Ausgabezeit, Erstattungszeit und den Grund für Herstellungsfehler. Sie ist idempotent und zieht vorhandene Werte aus `raw_json` nach, wenn die Schlüssel dort stehen. Der bestehende Bestell-Cron übernimmt die Felder danach aus `getOrderList`. Ein zusätzlicher Cron ist nicht nötig.
+
+Dashboard, Live-Verkäufe, Maschinenkarten, Bestellverwaltung und die Statistikseiten nutzen dieselbe Regel in `CoffeejiOrder::PORTAL_REVENUE_STATUSES`: Status 1 und 2. Hängende Bestellungen bleiben in der Summe und sind als „offen“ markiert.
+
+Die Werbestatistik bleibt leer. Die Merchant-Open-API beschreibt dafür keinen lesenden Endpunkt.

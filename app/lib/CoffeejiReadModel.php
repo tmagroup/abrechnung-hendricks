@@ -147,10 +147,11 @@ class CoffeejiReadModel
 		foreach ($devices as $device) {
 			$id = (string) $device['id'];
 			$ext = (string) ($device['device_ext_no'] ?? '');
-			$stat = $stats[$id] ?? $stats[$ext] ?? array('amount' => 0.0, 'count' => 0, 'last' => null);
+			$stat = $stats[$id] ?? $stats[$ext] ?? array('amount' => 0.0, 'count' => 0, 'open' => 0, 'last' => null);
 			$device['materials'] = $materials[$id] ?? array();
 			$device['month_amount'] = $stat['amount'];
 			$device['month_count'] = $stat['count'];
+			$device['month_open'] = (int) ($stat['open'] ?? 0);
 			$device['last_sale'] = $stat['last'];
 			$device['webhook_at'] = self::pickWebhookAt($device, $alerts[$id] ?? array());
 			$out[] = $device;
