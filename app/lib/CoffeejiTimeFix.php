@@ -155,33 +155,6 @@ class CoffeejiTimeFix
 	}
 
 	/**
-	 * @param array<string, mixed> $row
-	 * @return array{changed: bool, heart_time: ?string}
-	 */
-	public static function planDevice(array $row): array
-	{
-		$current = self::stored($row['heart_time'] ?? null);
-		$decoded = self::decodeObject($row['raw_json'] ?? null);
-		if (!$decoded['ok']) {
-			return array('changed' => false, 'heart_time' => $current);
-		}
-		$source = self::firstClock($decoded['raw'], array('heartTime', 'heart_time'));
-		if ($source === null) {
-			return array('changed' => false, 'heart_time' => $current);
-		}
-		$zone = self::zoneOf($decoded['raw'], null);
-		$target = CoffeejiTime::storeSource($source, $zone);
-		if ($target === null) {
-			return array('changed' => false, 'heart_time' => $current);
-		}
-
-		return array(
-			'changed' => $current !== $target,
-			'heart_time' => $target,
-		);
-	}
-
-	/**
 	 * @return array{
 	 *   dry_run: bool,
 	 *   orders_changed: int,
@@ -196,15 +169,14 @@ class CoffeejiTimeFix
 	public function run(bool $dryRun): array
 	{
 		$orders = $this->correctOrders($dryRun);
-		$devices = $this->correctDevices($dryRun);
 
 		return array(
 			'dry_run' => $dryRun,
 			'orders_changed' => $orders['changed'],
 			'orders_unchanged' => $orders['unchanged'],
 			'orders_skipped' => $orders['skipped'],
-			'devices_changed' => $devices['changed'],
-			'devices_unchanged' => $devices['unchanged'],
+			'devices_changed' => 0,
+			'devices_unchanged' => 0,
 			'examples' => $orders['examples'],
 			'examples_more' => $orders['examples_more'],
 		);
@@ -222,8 +194,7 @@ class CoffeejiTimeFix
 		if (($result['orders_skipped'] ?? 0) > 0) {
 			$text .= ', übersprungen: ' . $result['orders_skipped'];
 		}
-		$text .= '. Geräte geändert: ' . $result['devices_changed']
-			. ', unverändert: ' . $result['devices_unchanged'] . '.';
+		$text .= '. Geräte bleiben unangetastet, der Sync schreibt heart_time.';
 		foreach ($result['examples'] ?? array() as $example) {
 			$text .= "\n" . $example['order_no'] . ': ' . $example['from'] . ' -> ' . $example['to'];
 		}
@@ -319,56 +290,6 @@ class CoffeejiTimeFix
 				$values[] = $update['id'];
 				$sql = 'UPDATE cj_orders SET ' . implode(', ', $assignments) . ' WHERE id = ?';
 				$this->execute($sql, $types, $values);
-			}
-			$this->db->commit();
-		} catch (Throwable $e) {
-			$this->db->rollback();
-			throw $e;
-		}
-	}
-
-	/**
-	 * @return array{changed: int, unchanged: int}
-	 */
-	private function correctDevices(bool $dryRun): array
-	{
-		$result = $this->db->query('SELECT id, heart_time, raw_json FROM cj_devices');
-		if (!$result) {
-			throw new CoffeejiException('Geräte konnten nicht gelesen werden.');
-		}
-		$changed = 0;
-		$unchanged = 0;
-		$updates = array();
-		while ($row = $result->fetch_assoc()) {
-			$plan = self::planDevice($row);
-			if (!$plan['changed'] || $plan['heart_time'] === null) {
-				$unchanged++;
-				continue;
-			}
-			$changed++;
-			$updates[] = array('id' => (string) $row['id'], 'heart_time' => $plan['heart_time']);
-		}
-		$result->free();
-		if (!$dryRun && $updates !== array()) {
-			$this->writeDevices($updates);
-		}
-
-		return array('changed' => $changed, 'unchanged' => $unchanged);
-	}
-
-	/**
-	 * @param list<array{id: string, heart_time: string}> $updates
-	 */
-	private function writeDevices(array $updates): void
-	{
-		$this->db->begin_transaction();
-		try {
-			foreach ($updates as $update) {
-				$this->execute(
-					'UPDATE cj_devices SET heart_time = ?, updated_at = NOW() WHERE id = ?',
-					'ss',
-					array($update['heart_time'], $update['id'])
-				);
 			}
 			$this->db->commit();
 		} catch (Throwable $e) {
@@ -491,27 +412,6 @@ class CoffeejiTimeFix
 		}
 
 		return abs($a->getTimestamp() - $b->getTimestamp()) <= self::ORDER_SKEW_SECONDS;
-	}
-
-	/**
-	 * @param array<string, mixed> $raw
-	 * @param list<string> $keys
-	 */
-	private static function firstClock(array $raw, array $keys): mixed
-	{
-		foreach ($keys as $key) {
-			if (!array_key_exists($key, $raw)) {
-				continue;
-			}
-			$value = $raw[$key];
-			if ($value === null || (is_string($value) && trim($value) === '')) {
-				continue;
-			}
-
-			return is_string($value) ? trim($value) : $value;
-		}
-
-		return null;
 	}
 
 	/**
