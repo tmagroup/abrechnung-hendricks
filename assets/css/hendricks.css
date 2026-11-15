@@ -5,7 +5,7 @@
 	--card: #FBF7EE;
 	--line: #E0D3BA;
 	--ink: #2a1a14;
-	--mut: #7d6a58;
+	--mut: #6f5c4a;
 	--bord: #7E221C;
 	--bordd: #521612;
 	--gold: #C9A24A;
@@ -646,7 +646,7 @@ table.dataTable.no-footer { border-bottom: 0 !important; }
 }
 .hc-step .step-num {
 	width: 26px; height: 26px; border-radius: 50%;
-	background: var(--perg-deep); color: #fff;
+	background: var(--perg-deep); color: #2a1a14;
 	display: inline-flex; align-items: center; justify-content: center;
 }
 .hc-step.active { background: var(--bord); border-color: var(--bord); color: #fff; }
@@ -790,4 +790,28 @@ body.hc-login {
 	.top { flex-direction: column; }
 	.top .r { margin-left: 0; }
 	.hc-steps { flex-direction: column; }
+}
+
+.hc-app .top > div:first-child {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.hc-app .top h1 {
+	color: #F6E7C1;
+	overflow-wrap: break-word;
+}
+.hc-app .sec h2 {
+	color: #F6E7C1;
+}
+.hc-app svg text {
+	fill: #5e4c3c;
+}
+.hc-app .text-warning {
+	color: #7a4f12 !important;
+}
+.hc-app .text-success {
+	color: #245c2a !important;
+}
+.hc-app .text-muted {
+	color: var(--mut) !important;
 }

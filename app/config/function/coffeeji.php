@@ -378,6 +378,28 @@ function hc_first_name(string $name): string
 	return (string) ($parts[0] ?? '');
 }
 
+/**
+ * Name in der Begrüßung. manage_user hat nur das Feld name, keinen eigenen Vornamen.
+ * Das erste Wort ist der Vorname, außer es ist ein Artikel: „The Hendricks“ wäre sonst nur „The“.
+ */
+function hc_greeting_name(string $name): string
+{
+	$parts = preg_split('/\s+/u', trim($name)) ?: array();
+	$parts = array_values(array_filter($parts, static function ($part) {
+		return $part !== '';
+	}));
+	if ($parts === array()) {
+		return '';
+	}
+	$first = (string) $parts[0];
+	$articles = array('the', 'der', 'die', 'das', 'den', 'dem', 'des');
+	if (count($parts) > 1 && in_array(mb_strtolower($first, 'UTF-8'), $articles, true)) {
+		return implode(' ', $parts);
+	}
+
+	return $first;
+}
+
 function hc_initials(string $name): string
 {
 	$parts = preg_split('/\s+/', trim($name)) ?: array();
