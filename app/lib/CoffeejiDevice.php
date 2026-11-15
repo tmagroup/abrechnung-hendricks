@@ -25,7 +25,10 @@ class CoffeejiDevice
 			'exception_remark' => trim((string) ($row['exceptionRemark'] ?? '')),
 			'scarce_status' => self::nullableInt($row['scarceStatus'] ?? null),
 			'scarce_remark' => trim((string) ($row['scarceRemark'] ?? '')),
-			'heart_time' => CoffeejiTime::store($row['heartTime'] ?? null),
+			'heart_time' => CoffeejiTime::storeSource(
+				$row['heartTime'] ?? null,
+				trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? ''))
+			),
 			'device_type_name' => trim((string) ($row['deviceTypeName'] ?? '')),
 			'soft_run_version' => trim((string) ($row['softRunVersion'] ?? '')),
 			'raw' => $row,

@@ -94,6 +94,8 @@ ModSecurity, eine WAF oder zusätzliche `.htaccess`-Regeln dürfen POST auf `/co
 
 Dashboard und Maschinen zeigen bei einer laufenden Störung oder einem Materialalarm die Zeit des letzten passenden Webhooks.
 
+Naive Coffeeji-Zeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. Fehlt die Zone, gilt die in der Doku genannte Ost-8-Zeit (UTC+8). Bereits gespeicherte Zeilen korrigiert `app/cli/coffeeji_fix_times.php` aus `raw_json`. Zuerst `--dry-run`, danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Sync schreibt dieselbe Berlin-Zeit; der Vergleich „unverändert“ greift erst, wenn `create_time` schon stimmt.
+
 ## Ausspielen
 
 Zuerst auf einer Test-Subdomain, nie als erster Schritt auf der laufenden Abrechnung.
@@ -102,9 +104,17 @@ Zuerst auf einer Test-Subdomain, nie als erster Schritt auf der laufenden Abrech
 2. Code ausrollen, `app/config/config.php` nicht überschreiben.
 3. `composer install --no-dev` im Projektverzeichnis.
 4. Die Coffeeji-Migrationen in dieser Reihenfolge einspielen, soweit sie auf der Datenbank noch fehlen: `20261113_coffeeji.sql`, `20261114_coffeeji_webhook.sql`, `20261115_coffeeji_orders_portal.sql`.
-5. Coffeeji-Schlüssel setzen, das Webhook-Token erzeugen und die Cron-Zeilen erst nach einem manuellen Probelauf (`php app/cli/coffeeji_sync.php devices`) eintragen.
-6. Die Webhook-URL im Coffeeji-Portal eintragen, nachdem ein POST gegen `/coffeeji_webhook` die Erfolgshülle liefert.
-7. Anmeldung, Dashboard, eine bestehende Abrechnungsseite und ein Excel-Upload prüfen.
+5. Zeitkorrektur erst nach der Portal-Migration, damit `out_stock_time` und `refund_time` mitlaufen. Zuerst der Trockenlauf, dann der Schreiblauf, dann derselbe Aufruf noch einmal. Der dritte Lauf muss `Bestellungen geändert: 0` melden.
+
+```bash
+php app/cli/coffeeji_fix_times.php --dry-run
+php app/cli/coffeeji_fix_times.php
+php app/cli/coffeeji_fix_times.php
+```
+
+6. Coffeeji-Schlüssel setzen, das Webhook-Token erzeugen und die Cron-Zeilen erst nach einem manuellen Probelauf (`php app/cli/coffeeji_sync.php devices`) eintragen.
+7. Die Webhook-URL im Coffeeji-Portal eintragen, nachdem ein POST gegen `/coffeeji_webhook` die Erfolgshülle liefert.
+8. Anmeldung, Dashboard, Bestellverwaltung, die Statistikseiten, eine bestehende Abrechnungsseite und ein Excel-Upload prüfen.
 
 ## Tests
 

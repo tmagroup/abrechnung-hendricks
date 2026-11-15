@@ -25,6 +25,10 @@ class CoffeejiOrder
 	{
 		$refund = $row['refundStatus'] ?? null;
 		$refundStatus = ($refund === null || $refund === '') ? null : (int) $refund;
+		$zone = trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? ''));
+		$source = self::sourceClock($row);
+		$outSource = self::sourceField($row, array('source_out_stock_time', 'outStockTime', 'out_stock_time'));
+		$refundSource = self::sourceField($row, array('source_refund_time', 'refundTime', 'refund_time'));
 
 		return array(
 			'order_no' => trim((string) ($row['orderNo'] ?? '')),
@@ -39,12 +43,44 @@ class CoffeejiOrder
 			'status' => (int) ($row['status'] ?? 0),
 			'refund_status' => $refundStatus,
 			'out_stock_status' => self::nullableInt($row['outStockStatus'] ?? $row['out_stock_status'] ?? null),
-			'out_stock_time' => self::clock($row['outStockTime'] ?? $row['out_stock_time'] ?? null),
-			'refund_time' => self::clock($row['refundTime'] ?? $row['refund_time'] ?? null),
+			'out_stock_time' => self::clock($outSource, $zone),
+			'refund_time' => self::clock($refundSource, $zone),
 			'fail_remark' => self::clip(trim((string) ($row['failRemark'] ?? $row['fail_remark'] ?? '')), 2000),
-			'create_time' => CoffeejiTime::store($row['createTime'] ?? $row['create_time'] ?? null),
-			'time_zone_id' => trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? '')),
+			'create_time' => CoffeejiTime::storeSource($source, $zone),
+			'time_zone_id' => $zone,
+			'source_create_time' => self::sourceLiteral($source),
+			'source_out_stock_time' => self::sourceLiteral($outSource),
+			'source_refund_time' => self::sourceLiteral($refundSource),
 		);
+	}
+
+	/**
+	 * Ursprüngliche Wanduhr. source_create_time gewinnt vor createTime und create_time,
+	 * damit ein zweites Normalisieren die schon gedrehte Berlin-Zeit nicht noch einmal schiebt.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	public static function sourceClock(array $row): mixed
+	{
+		return self::sourceField($row, array('source_create_time', 'createTime', 'create_time'));
+	}
+
+	public static function sourceLiteral(mixed $value): ?string
+	{
+		if ($value === null) {
+			return null;
+		}
+		if (is_int($value)) {
+			return (string) $value;
+		}
+		if (is_string($value)) {
+			$value = trim($value);
+
+			return $value === '' ? null : $value;
+		}
+		$text = trim((string) $value);
+
+		return $text === '' ? null : $text;
 	}
 
 	public static function countsForPortalRevenue(int $status): bool
@@ -72,7 +108,10 @@ class CoffeejiOrder
 		return (int) $value;
 	}
 
-	private static function clock(mixed $value): ?string
+	/**
+	 * Dieselbe Zone wie create_time. source_* bleibt die Wanduhr, damit der nächste Lauf nicht noch einmal schiebt.
+	 */
+	private static function clock(mixed $value, string $zone): ?string
 	{
 		if ($value === null) {
 			return null;
@@ -81,7 +120,28 @@ class CoffeejiOrder
 			return null;
 		}
 
-		return CoffeejiTime::store($value);
+		return CoffeejiTime::storeSource($value, $zone);
+	}
+
+	/**
+	 * @param array<string, mixed> $row
+	 * @param list<string> $keys
+	 */
+	private static function sourceField(array $row, array $keys): mixed
+	{
+		foreach ($keys as $key) {
+			if (!array_key_exists($key, $row)) {
+				continue;
+			}
+			$value = $row[$key];
+			if ($value === null || (is_string($value) && trim($value) === '')) {
+				continue;
+			}
+
+			return is_string($value) ? trim($value) : $value;
+		}
+
+		return null;
 	}
 
 	private static function clip(string $value, int $max): string

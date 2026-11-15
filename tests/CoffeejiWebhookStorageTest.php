@@ -274,8 +274,8 @@ final class CoffeejiWebhookStorageTest extends TestCase
 		$this->assertSame(1, (int) $fresh['status']);
 		$this->assertSame('2', (string) $fresh['pay_way']);
 		$this->assertSame('1', (string) $fresh['out_stock_status']);
-		$this->assertSame('2026-11-14 21:53:10', (string) $fresh['out_stock_time']);
-		$this->assertSame('2026-11-14 22:00:00', (string) $fresh['refund_time']);
+		$this->assertSame('2026-11-14 14:53:10', (string) $fresh['out_stock_time']);
+		$this->assertSame('2026-11-14 15:00:00', (string) $fresh['refund_time']);
 		$this->assertSame('Becher leer', (string) $fresh['fail_remark']);
 
 		$later = $this->post(array(

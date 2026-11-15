@@ -899,10 +899,10 @@ class CoffeejiRepository
 			$out['out_stock_status'] = $value === null ? null : (string) $value;
 		}
 		if (array_key_exists('outStockTime', $payload) || array_key_exists('out_stock_time', $payload)) {
-			$out['out_stock_time'] = CoffeejiTime::store($payload['outStockTime'] ?? $payload['out_stock_time'] ?? null);
+			$out['out_stock_time'] = CoffeejiTime::storeWebhook($payload['outStockTime'] ?? $payload['out_stock_time'] ?? null);
 		}
 		if (array_key_exists('refundTime', $payload) || array_key_exists('refund_time', $payload)) {
-			$out['refund_time'] = CoffeejiTime::store($payload['refundTime'] ?? $payload['refund_time'] ?? null);
+			$out['refund_time'] = CoffeejiTime::storeWebhook($payload['refundTime'] ?? $payload['refund_time'] ?? null);
 		}
 		if (array_key_exists('failRemark', $payload) || array_key_exists('fail_remark', $payload)) {
 			$out['fail_remark'] = self::clip(trim((string) ($payload['failRemark'] ?? $payload['fail_remark'] ?? '')), 2000);

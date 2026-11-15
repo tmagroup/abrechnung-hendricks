@@ -5,6 +5,7 @@ require_once __DIR__ . '/../app/lib/CoffeejiSignature.php';
 require_once __DIR__ . '/../app/lib/CoffeejiResponse.php';
 require_once __DIR__ . '/../app/lib/CoffeejiLogger.php';
 require_once __DIR__ . '/../app/lib/CoffeejiTime.php';
+require_once __DIR__ . '/../app/lib/CoffeejiTimeFix.php';
 require_once __DIR__ . '/../app/lib/CoffeejiOrder.php';
 require_once __DIR__ . '/../app/lib/CoffeejiPortal.php';
 require_once __DIR__ . '/../app/lib/CoffeejiPortalQuery.php';
