@@ -4,8 +4,8 @@
 	afterLogin();
 	$now = CoffeejiTime::now();
 	$user = hc_current_user();
-	$first = hc_first_name((string) ($user['name'] ?? ''));
-	$page_title = 'Guten Tag' . ($first !== '' ? ', ' . $first : '');
+	$greet = hc_greeting_name((string) ($user['name'] ?? ''));
+	$page_title = 'Guten Tag' . ($greet !== '' ? ', ' . $greet : '');
 	$page_subtitle = 'Premium Kaffee · Live-Übersicht · ' . $now->format('d.m.Y, H:i') . ' Uhr MEZ';
 
 	$bundle = array('state' => 'setup', 'message' => 'Die Live-Übersicht ist noch nicht eingerichtet.');
