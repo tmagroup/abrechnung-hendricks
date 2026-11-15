@@ -110,7 +110,33 @@ final class CoffeejiTimeTest extends TestCase
 		$this->assertCount(0, CoffeejiOrder::filterWindow(array($once), $to, $next));
 	}
 
-	public function testDeviceHeartTimeUsesDocumentedZoneUnlessOverridden(): void
+	public function testDeviceHeartTimeWithoutZoneMatchesMain(): void
+	{
+		$samples = array(
+			'2026-11-14 09:12:06',
+			'2026-11-14 16:12:06',
+			'2026-11-14 16:27:46',
+			'2026-11-15 04:54:00',
+			'2026-07-15 16:12:06',
+		);
+		foreach ($samples as $raw) {
+			$device = CoffeejiDevice::normalize(array(
+				'id' => '9000000000000000771',
+				'name' => 'Musterautomat',
+				'heartTime' => $raw,
+			));
+			$this->assertSame(CoffeejiTime::store($raw), $device['heart_time'], $raw);
+			$this->assertSame($raw, $device['heart_time'], $raw);
+			$again = CoffeejiDevice::normalize(array(
+				'id' => '9000000000000000771',
+				'name' => 'Musterautomat',
+				'heartTime' => $device['heart_time'],
+			));
+			$this->assertSame($device['heart_time'], $again['heart_time']);
+		}
+	}
+
+	public function testDeviceHeartTimeUsesZoneOnlyWhenPresent(): void
 	{
 		$device = CoffeejiDevice::normalize(array(
 			'id' => '9000000000000000771',

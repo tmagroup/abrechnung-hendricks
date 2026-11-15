@@ -62,7 +62,7 @@ Nichts davon wird vom Repository eingerichtet. `/PFAD` durch das Verzeichnis ers
 
 Umsatz auf den neuen Seiten zählt nur Bestellungen mit Status 2 (ausgegeben). Beträge erscheinen als `1.234,50 €`, Uhrzeiten in MEZ.
 
-Naive Coffeeji-Zeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. `UTC+01:00` liegt im Sommer eine Stunde vor MESZ und im Winter auf MEZ. Fehlt die Zone, bleibt die Wanduhr stehen; UTC+8 ist nur das Beispiel in der Doku. Bestehende Zeilen korrigiert `app/cli/coffeeji_fix_times.php` aus `create_time` und `time_zone_id`. Zuerst `--dry-run` (Zählung und Beispielzeilen), danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Sync schreibt dieselbe Berlin-Zeit, sobald `create_time` abweicht.
+Naive Bestellzeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. `UTC+01:00` liegt im Sommer eine Stunde vor MESZ und im Winter auf MEZ. Fehlt die Zone bei einer Bestellung, bleibt die Wanduhr stehen. `heartTime` ohne Zone läuft wie bisher über `CoffeejiTime::store` und behält die Wanduhr; das Korrektur-Skript schreibt Gerätezeiten nicht um, das übernimmt der Sync. Bestehende Bestellungen korrigiert `app/cli/coffeeji_fix_times.php` aus `create_time` und `time_zone_id`. Zuerst `--dry-run` (Zählung und Beispielzeilen), danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Sync schreibt dieselbe Berlin-Zeit, sobald `create_time` abweicht.
 
 ## Ausspielen
 

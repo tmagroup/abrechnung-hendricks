@@ -80,10 +80,10 @@ final class CoffeejiTimeFixTest extends TestCase
 		$this->assertSame(2, $dry['orders_changed']);
 		$this->assertSame(1, $dry['orders_unchanged']);
 		$this->assertSame(0, $dry['orders_skipped']);
-		$this->assertSame(1, $dry['devices_changed']);
-		$this->assertSame(1, $dry['devices_unchanged']);
+		$this->assertSame(0, $dry['devices_changed']);
 		$summary = $fix->summary($dry);
 		$this->assertStringContainsString('Trockenlauf', $summary);
+		$this->assertStringContainsString('unangetastet', $summary);
 		$this->assertStringContainsString('A261012145202000000099: 2026-10-12 07:52:03 -> 2026-10-12 08:52:03', $summary);
 		$this->assertSame('2026-11-13 00:59:28', $this->orderTime('DEMO-TZ-UTC8'));
 		$this->assertSame('2026-10-12 07:52:03', $this->orderTime('A261012145202000000099'));
@@ -93,11 +93,11 @@ final class CoffeejiTimeFixTest extends TestCase
 		$applied = $fix->run(false);
 		$this->assertFalse($applied['dry_run']);
 		$this->assertSame(2, $applied['orders_changed']);
-		$this->assertSame(1, $applied['devices_changed']);
+		$this->assertSame(0, $applied['devices_changed']);
 		$this->assertSame('2026-11-12 17:59:28', $this->orderTime('DEMO-TZ-UTC8'));
 		$this->assertSame('2026-11-14 21:52:56', $this->orderTime('DEMO-TZ-UTC1'));
 		$this->assertSame('2026-10-12 08:52:03', $this->orderTime('A261012145202000000099'));
-		$this->assertSame('2026-11-15 01:15:00', $this->deviceTime('9000000000000000771'));
+		$this->assertSame('2026-11-15 08:15:00', $this->deviceTime('9000000000000000771'));
 		$this->assertSame('2026-11-15 09:00:00', $this->deviceTime('9000000000000000772'));
 		$raw = json_decode($this->orderRaw('DEMO-TZ-UTC8'), true);
 		$this->assertIsArray($raw);
@@ -107,10 +107,10 @@ final class CoffeejiTimeFixTest extends TestCase
 		$this->assertSame(0, $again['orders_changed']);
 		$this->assertSame(3, $again['orders_unchanged']);
 		$this->assertSame(0, $again['devices_changed']);
-		$this->assertSame(2, $again['devices_unchanged']);
 		$this->assertSame('2026-11-12 17:59:28', $this->orderTime('DEMO-TZ-UTC8'));
 		$this->assertSame('2026-10-12 08:52:03', $this->orderTime('A261012145202000000099'));
-		$this->assertSame('2026-11-15 01:15:00', $this->deviceTime('9000000000000000771'));
+		$this->assertSame('2026-11-15 08:15:00', $this->deviceTime('9000000000000000771'));
+		$this->assertSame('2026-11-15 09:00:00', $this->deviceTime('9000000000000000772'));
 		$this->assertTrue(CoffeejiTimeFix::isDryRun(array('coffeeji_fix_times.php', '--dry-run')));
 		$this->assertFalse(CoffeejiTimeFix::isDryRun(array('coffeeji_fix_times.php')));
 	}
