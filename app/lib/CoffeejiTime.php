@@ -6,7 +6,10 @@ class CoffeejiTime
 {
 	public const TZ = 'Europe/Berlin';
 
-	/** Ost-8, wenn die Nutzlast keine timeZoneId trägt. So steht es in der Coffeeji-Doku. */
+	/**
+	 * Beispielzone in der Coffeeji-Doku. Kein stiller Fallback:
+	 * in den Hendricks-Daten steht timeZoneId durchgängig UTC+01:00.
+	 */
 	public const DOCUMENTED_ZONE = 'UTC+8';
 
 	public static function zone(): DateTimeZone
@@ -81,10 +84,12 @@ class CoffeejiTime
 	 * Wanduhr aus Coffeeji nach Europe/Berlin (MEZ/MESZ).
 	 *
 	 * Epoch-Werte und Zeichenketten mit Z oder Offset sind absolute Zeitpunkte.
-	 * Eine Angabe ohne Offset ist die Wanduhr von $timeZoneId. Fehlt die Zone
-	 * oder ist sie leer, gilt die in der Coffeeji-Doku genannte Ost-8-Zeit
-	 * (UTC+8). Erkannte Formen: UTC+8, UTC+08:00, UTC+01:00, GMT+8 und IANA-Namen.
-	 * parseLocal bleibt für bereits gespeicherte Berlin-Zeiten zuständig.
+	 * Eine Angabe ohne Offset ist die Wanduhr von $timeZoneId, als fester Offset
+	 * (UTC+8, UTC+08:00, UTC+01:00, GMT+8) oder als IANA-Name. UTC+01:00 ist im
+	 * Sommer eine Stunde hinter MESZ und im Winter gleich MEZ.
+	 * Fehlt die Zone oder ist sie unbekannt, bleibt die Wanduhr stehen. UTC+8
+	 * steht nur im Doku-Beispiel und wird nicht angenommen.
+	 * parseLocal liest bereits gespeicherte Berlin-Zeiten.
 	 */
 	public static function storeSource(mixed $value, ?string $timeZoneId = null): ?string
 	{
@@ -131,7 +136,7 @@ class CoffeejiTime
 	{
 		$id = trim((string) $timeZoneId);
 		if ($id === '') {
-			$id = self::DOCUMENTED_ZONE;
+			return null;
 		}
 		$fixed = self::fixedOffset($id);
 		if ($fixed !== null) {

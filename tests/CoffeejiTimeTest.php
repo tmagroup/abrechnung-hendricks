@@ -19,13 +19,17 @@ final class CoffeejiTimeTest extends TestCase
 	{
 		$this->assertSame('2026-11-14 21:52:56', CoffeejiTime::storeSource('2026-11-14 21:52:56', 'UTC+01:00'));
 		$this->assertSame('2026-07-15 13:00:00', CoffeejiTime::storeSource('2026-07-15 12:00:00', 'UTC+01:00'));
+		$this->assertSame('2026-10-12 08:52:03', CoffeejiTime::storeSource('2026-10-12 07:52:03', 'UTC+01:00'));
+		$this->assertSame('2026-10-25 03:30:00', CoffeejiTime::storeSource('2026-10-25 03:30:00', 'UTC+01:00'));
+		$this->assertSame('2026-10-24 23:00:00', CoffeejiTime::storeSource('2026-10-24 22:00:00', 'UTC+01:00'));
 	}
 
-	public function testMissingZoneUsesDocumentedUtc8(): void
+	public function testMissingZoneKeepsTheWallClock(): void
 	{
-		$this->assertSame('2026-11-12 17:59:28', CoffeejiTime::storeSource('2026-11-13 00:59:28', null));
-		$this->assertSame('2026-11-12 17:59:28', CoffeejiTime::storeSource('2026-11-13 00:59:28', ''));
-		$this->assertSame('2026-11-12 17:59:28', CoffeejiTime::storeSource('2026-11-13 00:59:28', '   '));
+		$this->assertSame('2026-10-12 07:52:03', CoffeejiTime::storeSource('2026-10-12 07:52:03', null));
+		$this->assertSame('2026-10-12 07:52:03', CoffeejiTime::storeSource('2026-10-12 07:52:03', ''));
+		$this->assertSame('2026-10-12 07:52:03', CoffeejiTime::storeSource('2026-10-12 07:52:03', '   '));
+		$this->assertSame('2026-10-12 07:52:03', CoffeejiTime::storeSource('2026-10-12 07:52:03', 'keine-zone'));
 	}
 
 	public function testSummerAndWinterOffsetsDiffer(): void
@@ -79,6 +83,18 @@ final class CoffeejiTimeTest extends TestCase
 		$this->assertSame('UTC+8', $once['time_zone_id']);
 		$this->assertSame($once['create_time'], $twice['create_time']);
 		$this->assertSame($once['source_create_time'], $twice['source_create_time']);
+		$stored = CoffeejiOrder::storedJson($once);
+		$this->assertStringContainsString('createTime', $stored);
+		$this->assertStringNotContainsString('devicePwd', $stored);
+		$withSecret = CoffeejiOrder::normalize(array(
+			'orderNo' => 'DEMO-TZ-SECRET',
+			'createTime' => '2026-10-12 07:52:03',
+			'timeZoneId' => 'UTC+01:00',
+			'devicePwd' => 'darf-nicht-in-raw',
+		));
+		$this->assertSame('2026-10-12 08:52:03', $withSecret['create_time']);
+		$this->assertStringNotContainsString('darf-nicht-in-raw', CoffeejiOrder::storedJson($withSecret));
+		$this->assertStringNotContainsString('devicePwd', CoffeejiOrder::storedJson($withSecret));
 
 		$local = CoffeejiOrder::normalize(array(
 			'orderNo' => 'DEMO-TZ-2',
@@ -101,7 +117,14 @@ final class CoffeejiTimeTest extends TestCase
 			'name' => 'Musterautomat',
 			'heartTime' => '2026-11-15 08:15:00',
 		));
-		$this->assertSame('2026-11-15 01:15:00', $device['heart_time']);
+		$this->assertSame('2026-11-15 08:15:00', $device['heart_time']);
+		$china = CoffeejiDevice::normalize(array(
+			'id' => '9000000000000000773',
+			'name' => 'Musterautomat',
+			'heartTime' => '2026-11-15 08:15:00',
+			'timeZoneId' => 'UTC+8',
+		));
+		$this->assertSame('2026-11-15 01:15:00', $china['heart_time']);
 
 		$local = CoffeejiDevice::normalize(array(
 			'id' => '9000000000000000772',

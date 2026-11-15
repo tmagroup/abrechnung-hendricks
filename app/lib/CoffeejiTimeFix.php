@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 /**
- * Rechnet gespeicherte Coffeeji-Zeiten aus raw_json neu nach Europe/Berlin.
- * Mehrfach ausführbar: die ursprüngliche Wanduhr bleibt unter source_* erhalten.
+ * Rechnet gespeicherte Coffeeji-Zeiten nach Europe/Berlin.
+ * raw_json ist in der bestehenden Datenbank das normalisierte Objekt
+ * (create_time, time_zone_id), nicht die API-Zeile. Die ursprüngliche Wanduhr
+ * bleibt stehen; source_create_time markiert, dass sie schon verrechnet wurde.
+ * Die Bestellnummer trägt dieselbe Uhr wie UTC+8 und dient nur zur Kontrolle.
  */
 class CoffeejiTimeFix
 {
@@ -14,6 +17,8 @@ class CoffeejiTimeFix
 		'out_stock_time' => array('source_out_stock_time', 'outStockTime', 'out_stock_time'),
 		'refund_time' => array('source_refund_time', 'refundTime', 'refund_time'),
 	);
+
+	public const ORDER_SKEW_SECONDS = 2;
 
 	public function __construct(private mysqli $db)
 	{
@@ -31,9 +36,39 @@ class CoffeejiTimeFix
 	}
 
 	/**
+	 * Uhr aus der Bestellnummer (A + JJMMTTHHMMSS). Das ist die UTC+8-Wanduhr,
+	 * oft eine Sekunde vor createTime. Liefert null, wenn das Muster fehlt.
+	 */
+	public static function orderNoClock(string $orderNo): ?string
+	{
+		if (preg_match('/^A(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $orderNo, $match) !== 1) {
+			return null;
+		}
+		$built = sprintf(
+			'%04d-%02d-%02d %02d:%02d:%02d',
+			2000 + (int) $match[1],
+			(int) $match[2],
+			(int) $match[3],
+			(int) $match[4],
+			(int) $match[5],
+			(int) $match[6]
+		);
+		$parsed = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $built, new DateTimeZone('UTC'));
+		$errors = DateTimeImmutable::getLastErrors();
+		if (!$parsed || $parsed->format('Y-m-d H:i:s') !== $built) {
+			return null;
+		}
+		if (is_array($errors) && (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0)) {
+			return null;
+		}
+
+		return $built;
+	}
+
+	/**
 	 * @param array<string, mixed> $row
 	 * @param list<string> $columns
-	 * @return array{changed: bool, values: array<string, ?string>, raw_json: ?string}
+	 * @return array{changed: bool, skipped: bool, from: ?string, to: ?string, values: array<string, ?string>, raw_json: ?string}
 	 */
 	public static function planOrder(array $row, array $columns): array
 	{
@@ -43,52 +78,80 @@ class CoffeejiTimeFix
 		}
 		$decoded = self::decodeObject($row['raw_json'] ?? null);
 		$currentRaw = is_string($row['raw_json'] ?? null) ? $row['raw_json'] : null;
-		$values = array();
-		foreach ($columns as $column) {
-			$values[$column] = self::stored($row[$column] ?? null);
-		}
+		$values = self::storedValues($row, $columns);
+		$empty = array(
+			'changed' => false,
+			'skipped' => false,
+			'from' => $values['create_time'] ?? null,
+			'to' => $values['create_time'] ?? null,
+			'values' => $values,
+			'raw_json' => $currentRaw,
+		);
 		if (!$decoded['ok']) {
-			return array('changed' => false, 'values' => $values, 'raw_json' => $currentRaw);
+			return $empty;
 		}
 
 		$raw = $decoded['raw'];
 		$zone = self::zoneOf($raw, $row['time_zone_id'] ?? null);
+		$orderNo = trim((string) ($row['order_no'] ?? $raw['order_no'] ?? $raw['orderNo'] ?? ''));
 		$changed = false;
+		$skipped = false;
 		foreach ($columns as $column) {
-			$source = self::firstClock($raw, self::ORDER_FIELDS[$column]);
-			if ($source === null) {
-				$source = $row[$column] ?? null;
-			}
-			if ($source === null || (is_string($source) && trim($source) === '')) {
+			$picked = self::pickSource($raw, self::ORDER_FIELDS[$column], $row[$column] ?? null);
+			if ($picked['source'] === null) {
 				continue;
 			}
-			$target = CoffeejiTime::storeSource($source, $zone);
+			$target = CoffeejiTime::storeSource($picked['source'], $zone);
 			if ($target === null) {
 				continue;
 			}
+			$current = self::stored($row[$column] ?? null);
+			if ($column === 'create_time' && !$picked['stable']) {
+				$decision = self::guardLegacyCreateTime($orderNo, $current, $target);
+				if ($decision === 'keep') {
+					$values[$column] = $current;
+					continue;
+				}
+				if ($decision === 'skip') {
+					$skipped = true;
+					$values[$column] = $current;
+					continue;
+				}
+			}
 			$values[$column] = $target;
-			if (self::stored($row[$column] ?? null) === $target) {
+			if ($current === $target) {
 				continue;
 			}
 			$changed = true;
-			$literal = CoffeejiOrder::sourceLiteral($source);
+			$literal = CoffeejiOrder::sourceLiteral($picked['source']);
 			if ($literal !== null) {
 				$raw[self::ORDER_FIELDS[$column][0]] = $literal;
 			}
-			$raw[$column] = $target;
+		}
+		if ($skipped && !$changed) {
+			$empty['skipped'] = true;
+
+			return $empty;
 		}
 		if (!$changed) {
-			return array('changed' => false, 'values' => $values, 'raw_json' => $currentRaw);
+			return $empty;
 		}
 		if ($zone !== '' && (!isset($raw['time_zone_id']) || trim((string) $raw['time_zone_id']) === '')) {
 			$raw['time_zone_id'] = $zone;
 		}
 		$json = json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 		if ($json === false) {
-			return array('changed' => false, 'values' => self::storedValues($row, $columns), 'raw_json' => $currentRaw);
+			return $empty;
 		}
 
-		return array('changed' => true, 'values' => $values, 'raw_json' => $json);
+		return array(
+			'changed' => true,
+			'skipped' => false,
+			'from' => self::stored($row['create_time'] ?? null),
+			'to' => $values['create_time'] ?? null,
+			'values' => $values,
+			'raw_json' => $json,
+		);
 	}
 
 	/**
@@ -119,7 +182,16 @@ class CoffeejiTimeFix
 	}
 
 	/**
-	 * @return array{dry_run: bool, orders_changed: int, orders_unchanged: int, devices_changed: int, devices_unchanged: int}
+	 * @return array{
+	 *   dry_run: bool,
+	 *   orders_changed: int,
+	 *   orders_unchanged: int,
+	 *   orders_skipped: int,
+	 *   devices_changed: int,
+	 *   devices_unchanged: int,
+	 *   examples: list<array{order_no: string, from: string, to: string}>,
+	 *   examples_more: int
+	 * }
 	 */
 	public function run(bool $dryRun): array
 	{
@@ -130,29 +202,45 @@ class CoffeejiTimeFix
 			'dry_run' => $dryRun,
 			'orders_changed' => $orders['changed'],
 			'orders_unchanged' => $orders['unchanged'],
+			'orders_skipped' => $orders['skipped'],
 			'devices_changed' => $devices['changed'],
 			'devices_unchanged' => $devices['unchanged'],
+			'examples' => $orders['examples'],
+			'examples_more' => $orders['examples_more'],
 		);
 	}
 
+	/**
+	 * @param array<string, mixed> $result
+	 */
 	public function summary(array $result): string
 	{
 		$prefix = $result['dry_run'] ? 'Trockenlauf. ' : '';
-
-		return $prefix
+		$text = $prefix
 			. 'Bestellungen geändert: ' . $result['orders_changed']
-			. ', unverändert: ' . $result['orders_unchanged']
-			. '. Geräte geändert: ' . $result['devices_changed']
+			. ', unverändert: ' . $result['orders_unchanged'];
+		if (($result['orders_skipped'] ?? 0) > 0) {
+			$text .= ', übersprungen: ' . $result['orders_skipped'];
+		}
+		$text .= '. Geräte geändert: ' . $result['devices_changed']
 			. ', unverändert: ' . $result['devices_unchanged'] . '.';
+		foreach ($result['examples'] ?? array() as $example) {
+			$text .= "\n" . $example['order_no'] . ': ' . $example['from'] . ' -> ' . $example['to'];
+		}
+		if (($result['examples_more'] ?? 0) > 0) {
+			$text .= "\n… und " . $result['examples_more'] . ' weitere.';
+		}
+
+		return $text;
 	}
 
 	/**
-	 * @return array{changed: int, unchanged: int}
+	 * @return array{changed: int, unchanged: int, skipped: int, examples: list<array{order_no: string, from: string, to: string}>, examples_more: int}
 	 */
 	private function correctOrders(bool $dryRun): array
 	{
 		$columns = $this->orderClockColumns();
-		$select = array_merge(array('id', 'time_zone_id', 'raw_json'), $columns);
+		$select = array_merge(array('id', 'order_no', 'time_zone_id', 'raw_json'), $columns);
 		$sql = 'SELECT ' . implode(', ', $select) . ' FROM cj_orders';
 		$result = $this->db->query($sql);
 		if (!$result) {
@@ -166,21 +254,40 @@ class CoffeejiTimeFix
 
 		$changed = 0;
 		$unchanged = 0;
+		$skipped = 0;
+		$examples = array();
 		$updates = array();
 		foreach ($rows as $row) {
 			$plan = self::planOrder($row, $columns);
 			if (!$plan['changed']) {
-				$unchanged++;
+				if ($plan['skipped']) {
+					$skipped++;
+				} else {
+					$unchanged++;
+				}
 				continue;
 			}
 			$changed++;
+			if (count($examples) < 10 && $plan['from'] !== null && $plan['to'] !== null) {
+				$examples[] = array(
+					'order_no' => trim((string) ($row['order_no'] ?? '')),
+					'from' => $plan['from'],
+					'to' => $plan['to'],
+				);
+			}
 			$updates[] = array('id' => (int) $row['id'], 'plan' => $plan, 'columns' => $columns);
 		}
 		if (!$dryRun && $updates !== array()) {
 			$this->writeOrders($updates);
 		}
 
-		return array('changed' => $changed, 'unchanged' => $unchanged);
+		return array(
+			'changed' => $changed,
+			'unchanged' => $unchanged,
+			'skipped' => $skipped,
+			'examples' => $examples,
+			'examples_more' => max(0, $changed - count($examples)),
+		);
 	}
 
 	/**
@@ -314,6 +421,76 @@ class CoffeejiTimeFix
 			throw new CoffeejiException('Die Zeitkorrektur konnte nicht geschrieben werden.');
 		}
 		$stmt->close();
+	}
+
+	/**
+	 * @param array<string, mixed> $raw
+	 * @param list<string> $keys
+	 * @return array{source: mixed, stable: bool}
+	 */
+	private static function pickSource(array $raw, array $keys, mixed $column): array
+	{
+		foreach ($keys as $index => $key) {
+			if (!array_key_exists($key, $raw)) {
+				continue;
+			}
+			$value = $raw[$key];
+			if ($value === null || (is_string($value) && trim($value) === '')) {
+				continue;
+			}
+			$stable = $index === 0 || in_array($key, array('createTime', 'outStockTime', 'refundTime'), true);
+
+			return array(
+				'source' => is_string($value) ? trim($value) : $value,
+				'stable' => $stable,
+			);
+		}
+		if ($column === null || (is_string($column) && trim((string) $column) === '')) {
+			return array('source' => null, 'stable' => false);
+		}
+
+		return array(
+			'source' => is_string($column) ? trim((string) $column) : $column,
+			'stable' => false,
+		);
+	}
+
+	/**
+	 * Ohne Marker: die Bestellnummer (UTC+8) prüft, ob die Spalte schon Berlin ist.
+	 * Sonst würde eine zweite Runde die Sommerzeit noch einmal drauflegen.
+	 */
+	private static function guardLegacyCreateTime(string $orderNo, ?string $stored, ?string $target): string
+	{
+		$clock = self::orderNoClock($orderNo);
+		if ($clock === null) {
+			return 'apply';
+		}
+		$berlin = CoffeejiTime::storeSource($clock, 'UTC+8');
+		if ($berlin === null) {
+			return 'apply';
+		}
+		if (self::agrees($stored, $berlin)) {
+			return 'keep';
+		}
+		if (self::agrees($target, $berlin)) {
+			return 'apply';
+		}
+
+		return 'skip';
+	}
+
+	private static function agrees(?string $left, ?string $right): bool
+	{
+		if ($left === null || $right === null) {
+			return false;
+		}
+		$a = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $left, CoffeejiTime::zone());
+		$b = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $right, CoffeejiTime::zone());
+		if (!$a || !$b) {
+			return false;
+		}
+
+		return abs($a->getTimestamp() - $b->getTimestamp()) <= self::ORDER_SKEW_SECONDS;
 	}
 
 	/**

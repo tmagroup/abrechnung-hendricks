@@ -16,8 +16,7 @@ class CoffeejiOrder
 		$refundStatus = ($refund === null || $refund === '') ? null : (int) $refund;
 		$zone = trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? ''));
 		$source = self::sourceClock($row);
-
-		return array(
+		$normalized = array(
 			'order_no' => trim((string) ($row['orderNo'] ?? '')),
 			'device_id' => trim((string) ($row['deviceId'] ?? '')),
 			'device_ext_no' => trim((string) ($row['deviceExtNo'] ?? '')),
@@ -32,6 +31,53 @@ class CoffeejiOrder
 			'time_zone_id' => $zone,
 			'source_create_time' => self::sourceLiteral($source),
 		);
+		$apiRaw = self::apiRaw($row);
+		if ($apiRaw !== null) {
+			$normalized['api_raw'] = $apiRaw;
+		}
+
+		return $normalized;
+	}
+
+	/**
+	 * JSON für raw_json. Liegt die API-Zeile bei, wird nur sie gespeichert,
+	 * damit createTime erhalten bleibt. devicePwd fällt weg.
+	 *
+	 * @param array<string, mixed> $order
+	 */
+	public static function storedJson(array $order): string
+	{
+		$payload = $order['api_raw'] ?? null;
+		if (!is_array($payload)) {
+			$payload = $order;
+			unset($payload['api_raw']);
+		}
+		$clean = CoffeejiResponse::stripSecrets($payload);
+		if (!is_array($clean)) {
+			$clean = array();
+		}
+		$json = json_encode($clean, JSON_UNESCAPED_UNICODE);
+
+		return $json === false ? '{}' : $json;
+	}
+
+	/**
+	 * @param array<string, mixed> $row
+	 * @return array<string, mixed>|null
+	 */
+	private static function apiRaw(array $row): ?array
+	{
+		if (isset($row['api_raw']) && is_array($row['api_raw'])) {
+			$clean = CoffeejiResponse::stripSecrets($row['api_raw']);
+
+			return is_array($clean) ? $clean : null;
+		}
+		if (!array_key_exists('createTime', $row) && !array_key_exists('timeZoneId', $row) && !array_key_exists('orderNo', $row)) {
+			return null;
+		}
+		$clean = CoffeejiResponse::stripSecrets($row);
+
+		return is_array($clean) ? $clean : null;
 	}
 
 	/**
