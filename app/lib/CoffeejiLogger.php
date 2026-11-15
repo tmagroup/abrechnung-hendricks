@@ -23,6 +23,14 @@ class CoffeejiLogger
 		$text = preg_replace('/"devicePwd"\s*:\s*"(?:\\.|[^"\\\\])*"/', '"devicePwd":"[entfernt]"', $text) ?? $text;
 		$text = preg_replace('/(key-md5\s*[:=]\s*)\S+/i', '$1[entfernt]', $text) ?? $text;
 		$text = preg_replace('/(api[_-]?secret\s*[:=]\s*)\S+/i', '$1[entfernt]', $text) ?? $text;
+		$text = preg_replace('/\btoken=[^&\s"]+/i', 'token=[entfernt]', $text) ?? $text;
+		$text = preg_replace('/("token"\s*:\s*")(?:\\.|[^"\\\\]*)"/i', '$1[entfernt]"', $text) ?? $text;
+		if (defined('COFFEEJI_WEBHOOK_TOKEN')) {
+			$token = trim((string) COFFEEJI_WEBHOOK_TOKEN);
+			if (strlen($token) >= 16) {
+				$text = str_replace($token, '[entfernt]', $text);
+			}
+		}
 
 		return $text;
 	}

@@ -6,12 +6,13 @@ class CoffeejiRevenue
 {
 	/**
 	 * @param list<array<string, mixed>> $orders
-	 * @return array{amount: float, count: int}
+	 * @return array{amount: float, count: int, open: int}
 	 */
 	public static function sum(array $orders, DateTimeImmutable $from, DateTimeImmutable $to): array
 	{
 		$amount = 0.0;
 		$count = 0;
+		$open = 0;
 		foreach ($orders as $order) {
 			if (!CoffeejiOrder::isSale($order)) {
 				continue;
@@ -22,11 +23,17 @@ class CoffeejiRevenue
 			}
 			$amount += (float) ($order['pay_amt'] ?? 0);
 			$count++;
+			$status = (int) ($order['status'] ?? 0);
+			$out = CoffeejiOrder::nullableInt($order['out_stock_status'] ?? null);
+			if (CoffeejiOrder::isOpen($status, $out)) {
+				$open++;
+			}
 		}
 
 		return array(
 			'amount' => round($amount, 2),
 			'count' => $count,
+			'open' => $open,
 		);
 	}
 
@@ -134,7 +141,7 @@ class CoffeejiRevenue
 
 	/**
 	 * @param list<array<string, mixed>> $orders
-	 * @return array<string, array{amount: float, count: int, last: ?string}>
+	 * @return array<string, array{amount: float, count: int, open: int, last: ?string}>
 	 */
 	public static function perDevice(array $orders, DateTimeImmutable $from, DateTimeImmutable $to): array
 	{
@@ -155,10 +162,15 @@ class CoffeejiRevenue
 				continue;
 			}
 			if (!isset($stats[$key])) {
-				$stats[$key] = array('amount' => 0.0, 'count' => 0, 'last' => null);
+				$stats[$key] = array('amount' => 0.0, 'count' => 0, 'open' => 0, 'last' => null);
 			}
 			$stats[$key]['amount'] = round($stats[$key]['amount'] + (float) ($order['pay_amt'] ?? 0), 2);
 			$stats[$key]['count']++;
+			$status = (int) ($order['status'] ?? 0);
+			$out = CoffeejiOrder::nullableInt($order['out_stock_status'] ?? null);
+			if (CoffeejiOrder::isOpen($status, $out)) {
+				$stats[$key]['open']++;
+			}
 			$stamp = $created->format('Y-m-d H:i:s');
 			if ($stats[$key]['last'] === null || $stamp > $stats[$key]['last']) {
 				$stats[$key]['last'] = $stamp;

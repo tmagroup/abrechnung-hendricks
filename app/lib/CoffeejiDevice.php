@@ -25,11 +25,28 @@ class CoffeejiDevice
 			'exception_remark' => trim((string) ($row['exceptionRemark'] ?? '')),
 			'scarce_status' => self::nullableInt($row['scarceStatus'] ?? null),
 			'scarce_remark' => trim((string) ($row['scarceRemark'] ?? '')),
-			'heart_time' => CoffeejiTime::store($row['heartTime'] ?? null),
+			'heart_time' => self::heartTime($row),
 			'device_type_name' => trim((string) ($row['deviceTypeName'] ?? '')),
 			'soft_run_version' => trim((string) ($row['softRunVersion'] ?? '')),
 			'raw' => $row,
 		);
+	}
+
+	/**
+	 * Ohne timeZoneId wie auf main: CoffeejiTime::store liest die naive Uhr als Europe/Berlin.
+	 * Steht eine Zone dabei, gilt sie wie bei Bestellungen.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private static function heartTime(array $row): ?string
+	{
+		$value = $row['heartTime'] ?? null;
+		$zone = trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? ''));
+		if ($zone === '') {
+			return CoffeejiTime::store($value);
+		}
+
+		return CoffeejiTime::storeSource($value, $zone);
 	}
 
 	private static function nullableInt(mixed $value): ?int

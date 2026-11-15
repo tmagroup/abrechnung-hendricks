@@ -7,6 +7,8 @@ require_once __DIR__ . '/../../lib/CoffeejiResponse.php';
 require_once __DIR__ . '/../../lib/CoffeejiLogger.php';
 require_once __DIR__ . '/../../lib/CoffeejiTime.php';
 require_once __DIR__ . '/../../lib/CoffeejiOrder.php';
+require_once __DIR__ . '/../../lib/CoffeejiPortal.php';
+require_once __DIR__ . '/../../lib/CoffeejiPortalQuery.php';
 require_once __DIR__ . '/../../lib/CoffeejiDevice.php';
 require_once __DIR__ . '/../../lib/CoffeejiMaterial.php';
 require_once __DIR__ . '/../../lib/CoffeejiUpsert.php';
@@ -15,6 +17,7 @@ require_once __DIR__ . '/../../lib/CoffeejiClient.php';
 require_once __DIR__ . '/../../lib/CoffeejiRepository.php';
 require_once __DIR__ . '/../../lib/CoffeejiSync.php';
 require_once __DIR__ . '/../../lib/CoffeejiReadModel.php';
+require_once __DIR__ . '/../../lib/CoffeejiWebhook.php';
 
 if (!defined('DB_HOSTNAME')) {
 	define('DB_HOSTNAME', (string) ($db_hostname ?? 'localhost'));
@@ -41,6 +44,70 @@ if (!defined('COFFEEJI_BASE_URL')) {
 }
 if (!defined('COFFEEJI_LOG')) {
 	define('COFFEEJI_LOG', dirname(__DIR__, 3) . '/storage/logs/coffeeji.log');
+}
+
+$hcWebhookTokenEnv = getenv('COFFEEJI_WEBHOOK_TOKEN');
+$hcWebhookIpsEnv = getenv('COFFEEJI_WEBHOOK_IPS');
+$hcWebhookMaxEnv = getenv('COFFEEJI_WEBHOOK_MAX_BYTES');
+$hcWebhookToken = ($hcWebhookTokenEnv !== false && $hcWebhookTokenEnv !== '') ? $hcWebhookTokenEnv : (isset($coffeeji_webhook_token) ? (string) $coffeeji_webhook_token : '');
+if ($hcWebhookIpsEnv !== false && $hcWebhookIpsEnv !== '') {
+	$hcWebhookIps = $hcWebhookIpsEnv;
+} elseif (isset($coffeeji_webhook_ips) && is_array($coffeeji_webhook_ips)) {
+	$hcWebhookIps = implode(',', $coffeeji_webhook_ips);
+} else {
+	$hcWebhookIps = isset($coffeeji_webhook_ips) ? (string) $coffeeji_webhook_ips : '';
+}
+$hcWebhookMax = ($hcWebhookMaxEnv !== false && $hcWebhookMaxEnv !== '') ? (int) $hcWebhookMaxEnv : (isset($coffeeji_webhook_max_bytes) ? (int) $coffeeji_webhook_max_bytes : CoffeejiWebhook::DEFAULT_MAX_BYTES);
+if (!defined('COFFEEJI_WEBHOOK_TOKEN')) {
+	define('COFFEEJI_WEBHOOK_TOKEN', $hcWebhookToken);
+}
+if (!defined('COFFEEJI_WEBHOOK_IPS')) {
+	define('COFFEEJI_WEBHOOK_IPS', $hcWebhookIps);
+}
+if (!defined('COFFEEJI_WEBHOOK_MAX_BYTES')) {
+	define('COFFEEJI_WEBHOOK_MAX_BYTES', CoffeejiWebhook::normalizeMaxBytes($hcWebhookMax));
+}
+
+function coffeeji_webhook_dispatch(): void
+{
+	while (ob_get_level() > 0) {
+		ob_end_clean();
+	}
+	$max = defined('COFFEEJI_WEBHOOK_MAX_BYTES') ? (int) COFFEEJI_WEBHOOK_MAX_BYTES : CoffeejiWebhook::DEFAULT_MAX_BYTES;
+	$length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+	$raw = '';
+	if ($length <= $max) {
+		$stream = fopen('php://input', 'rb');
+		if ($stream !== false) {
+			$read = stream_get_contents($stream, $max + 1);
+			$raw = $read === false ? '' : $read;
+			fclose($stream);
+		}
+	}
+	$token = defined('COFFEEJI_WEBHOOK_TOKEN') ? (string) COFFEEJI_WEBHOOK_TOKEN : '';
+	$ips = defined('COFFEEJI_WEBHOOK_IPS') ? (string) COFFEEJI_WEBHOOK_IPS : '';
+	$log = defined('COFFEEJI_LOG') ? COFFEEJI_LOG : dirname(__DIR__, 3) . '/storage/logs/coffeeji.log';
+	$webhook = new CoffeejiWebhook(
+		new CoffeejiWebhookConfig($token, CoffeejiWebhook::parseIpList($ips), $max),
+		new CoffeejiRepository(),
+		new CoffeejiLogger($log)
+	);
+	$result = $webhook->handle(
+		(string) ($_SERVER['REQUEST_METHOD'] ?? ''),
+		$raw,
+		$_GET,
+		$_SERVER
+	);
+	coffeeji_webhook_emit($result->status, $result->body);
+}
+
+function coffeeji_webhook_emit(int $status, string $body): void
+{
+	http_response_code($status);
+	header('Content-Type: application/json; charset=utf-8');
+	header('X-Content-Type-Options: nosniff');
+	header('Cache-Control: no-store');
+	echo $body;
 }
 
 function coffeeji_configured(): bool
@@ -125,31 +192,7 @@ function hc_clock(?string $stored, bool $withDate = false): string
 
 function hc_payway(string $name): string
 {
-	$trim = trim($name);
-	$map = array(
-		'现金支付' => 'Bargeld',
-		'现金' => 'Bargeld',
-		'微信支付' => 'WeChat',
-		'支付宝支付' => 'Alipay',
-		'支付宝' => 'Alipay',
-		'刷卡支付' => 'Karte',
-		'银行卡' => 'Karte',
-		'免费' => 'Gratis',
-	);
-	if (isset($map[$trim])) {
-		return $map[$trim];
-	}
-	if ($trim === '') {
-		return '—';
-	}
-	if (stripos($trim, 'bar') !== false || stripos($trim, 'cash') !== false) {
-		return 'Bargeld';
-	}
-	if (stripos($trim, 'kart') !== false || stripos($trim, 'card') !== false) {
-		return 'Karte';
-	}
-
-	return $trim;
+	return CoffeejiPortal::payLabel($name);
 }
 
 function hc_order_status(int $status): string
@@ -268,7 +311,7 @@ function hc_bar_chart(array $days): string
 		$opacity = !empty($day['today']) ? ' opacity="0.7"' : '';
 		$svg .= '<rect x="' . round($x, 1) . '" y="' . round($y, 1) . '" width="' . round($bar, 1) . '" height="' . round(max($h, 0), 1) . '" rx="3" fill="' . $fill . '"' . $opacity . '/>';
 		$nearToday = (count($days) - 1 - $index) <= 2;
-		if (!empty($day['today']) || ($index % 5 === 0 && !$nearToday)) {
+		if (!empty($day['today']) || !empty($day['force_label']) || ($index % 5 === 0 && !$nearToday)) {
 			$svg .= '<text x="' . round($x + $bar / 2, 1) . '" y="272" text-anchor="middle" font-size="11" fill="#8a7867">' . hc_h($day['label']) . '</text>';
 		}
 	}
@@ -284,6 +327,7 @@ function hc_icon(string $name, int $size = 19): string
 		'machine' => '<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
 		'pulse' => '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
 		'gauge' => '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+		'chart' => '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-8"/>',
 		'calendar' => '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
 		'doc' => '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
 		'receipt' => '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
@@ -408,10 +452,11 @@ function hc_machine_card(array $device): string
 			}
 			$html .= hc_h($line['text']) . '</div>';
 		}
+		$html .= hc_webhook_line($device, $tone[0]);
 		$html .= '</div></div>';
 	} else {
 		$quiet = $tone[0] === 'gruen' ? 'Keine Störung gemeldet.' : $tone[1];
-		$html .= '<div class="eb ' . hc_h($tone[0]) . '">' . hc_icon('alert', 17) . '<div><div>' . hc_h($quiet) . '</div></div></div>';
+		$html .= '<div class="eb ' . hc_h($tone[0]) . '">' . hc_icon('alert', 17) . '<div><div>' . hc_h($quiet) . '</div>' . hc_webhook_line($device, $tone[0]) . '</div></div>';
 	}
 	$materials = $device['materials'] ?? array();
 	if ($materials === array()) {
@@ -420,12 +465,29 @@ function hc_machine_card(array $device): string
 	foreach ($materials as $material) {
 		$html .= hc_fill_bar($material);
 	}
+	$open = (int) ($device['month_open'] ?? 0);
 	$html .= '<div class="mf"><div><b>' . hc_money((float) ($device['month_amount'] ?? 0)) . '</b>Umsatz Monat</div>';
-	$html .= '<div><b>' . (int) ($device['month_count'] ?? 0) . '</b>Verkäufe</div>';
+	$html .= '<div><b>' . (int) ($device['month_count'] ?? 0) . '</b>Verkäufe';
+	if ($open > 0) {
+		$html .= '<span class="chip wait"><i></i>' . $open . ' offen</span>';
+	}
+	$html .= '</div>';
 	$html .= '<div><b>' . hc_clock($device['last_sale'] ?? null) . '</b>Letzter Verkauf</div></div>';
 	$html .= '</article>';
 
 	return $html;
+}
+
+/**
+ * @param array<string, mixed> $device
+ */
+function hc_webhook_line(array $device, string $tone): string
+{
+	if ($tone === 'gruen' || empty($device['webhook_at'])) {
+		return '';
+	}
+
+	return '<div>Letzter Webhook · ' . hc_h(hc_clock((string) $device['webhook_at'], true)) . '</div>';
 }
 
 /**
@@ -441,7 +503,8 @@ function hc_sales_html(array $orders): string
 		$status = (int) ($order['status'] ?? 0);
 		$html .= '<div class="sale"><div class="cup">' . hc_icon('machine', 19) . '</div><div><b>' . hc_h($order['goods_name'] ?: 'Verkauf') . '</b>';
 		$html .= '<span>' . hc_clock($order['create_time'] ?? null) . ' · ' . hc_h($order['device_name'] ?: $order['device_ext_no']) . '</span></div>';
-		$html .= '<div class="am">' . hc_money((float) ($order['pay_amt'] ?? 0)) . '<span>' . hc_h(hc_payway((string) ($order['pay_way_name'] ?? ''))) . '</span></div></div>';
+		$html .= '<div class="am">' . hc_money((float) ($order['pay_amt'] ?? 0)) . '<span>' . hc_h(hc_payway((string) ($order['pay_way_name'] ?? ''))) . '</span></div>';
+		$html .= hc_open_mark($status, $order['out_stock_status'] ?? null) . '</div>';
 	}
 
 	return $html;
@@ -463,7 +526,7 @@ function hc_render_live_table(array $orders): string
 		$html .= '<td>' . hc_h($order['device_name'] ?: $order['device_ext_no']) . '</td>';
 		$html .= '<td>' . hc_h(hc_payway((string) ($order['pay_way_name'] ?? ''))) . '</td>';
 		$html .= '<td class="r">' . hc_money((float) ($order['pay_amt'] ?? 0)) . '</td>';
-		$html .= '<td><span class="amp ' . hc_h(hc_order_tone($status)) . '"><i></i>' . hc_h(hc_order_status($status)) . '</span></td></tr>';
+		$html .= '<td><span class="amp ' . hc_h(hc_order_tone($status)) . '"><i></i>' . hc_h(hc_order_status($status)) . '</span> ' . hc_open_mark($status, $order['out_stock_status'] ?? null) . '</td></tr>';
 	}
 	$html .= '</tbody></table>';
 

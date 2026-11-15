@@ -142,18 +142,51 @@ class CoffeejiReadModel
 		$devices = $this->repository->devices();
 		$materials = $this->repository->materialsGrouped();
 		$stats = CoffeejiRevenue::perDevice($orders, $from, $to);
+		$alerts = $this->webhookAlertsByDevice();
 		$out = array();
 		foreach ($devices as $device) {
 			$id = (string) $device['id'];
 			$ext = (string) ($device['device_ext_no'] ?? '');
-			$stat = $stats[$id] ?? $stats[$ext] ?? array('amount' => 0.0, 'count' => 0, 'last' => null);
+			$stat = $stats[$id] ?? $stats[$ext] ?? array('amount' => 0.0, 'count' => 0, 'open' => 0, 'last' => null);
 			$device['materials'] = $materials[$id] ?? array();
 			$device['month_amount'] = $stat['amount'];
 			$device['month_count'] = $stat['count'];
+			$device['month_open'] = (int) ($stat['open'] ?? 0);
 			$device['last_sale'] = $stat['last'];
+			$device['webhook_at'] = self::pickWebhookAt($device, $alerts[$id] ?? array());
 			$out[] = $device;
 		}
 
 		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed> $device
+	 * @param array<string, string> $alerts
+	 */
+	public static function pickWebhookAt(array $device, array $alerts): ?string
+	{
+		$run = (int) ($device['device_run_status'] ?? 0);
+		$scarce = (int) ($device['scarce_status'] ?? 0);
+		if ($run === 2 && !empty($alerts['device_fault'])) {
+			return (string) $alerts['device_fault'];
+		}
+		if (($scarce === 2 || $scarce === 3) && !empty($alerts['material_alarm'])) {
+			return (string) $alerts['material_alarm'];
+		}
+
+		return null;
+	}
+
+	/**
+	 * @return array<string, array<string, string>>
+	 */
+	private function webhookAlertsByDevice(): array
+	{
+		try {
+			return $this->repository->latestWebhookAlerts();
+		} catch (Throwable $e) {
+			return array();
+		}
 	}
 }

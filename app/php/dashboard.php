@@ -49,12 +49,12 @@
 	<div class="tile hero">
 		<div class="l"><span class="bl"><?php echo hc_icon('euro', 18); ?></span>Umsatz heute</div>
 		<div class="v"><?php echo hc_money((float) $summary['today']['amount']); ?></div>
-		<div class="d"><?php echo hc_delta($summary['today_delta']); ?><span>ggü. Vortag <?php echo hc_h($now->format('H:i')); ?></span></div>
+		<div class="d"><?php echo hc_delta($summary['today_delta']); ?><span>ggü. Vortag <?php echo hc_h($now->format('H:i')); ?><?php echo (int) $summary['today']['open'] > 0 ? ' · ' . (int) $summary['today']['open'] . ' offen' : ''; ?></span></div>
 	</div>
 	<div class="tile">
 		<div class="l"><span class="bl"><?php echo hc_icon('calendar', 18); ?></span>Umsatz <?php echo hc_h($monthName); ?></div>
 		<div class="v"><?php echo hc_money((float) $summary['month']['amount']); ?></div>
-		<div class="d"><?php echo hc_delta($summary['month_delta']); ?><span>ggü. 1.–<?php echo $day; ?>. <?php echo hc_h($prevName); ?></span></div>
+		<div class="d"><?php echo hc_delta($summary['month_delta']); ?><span>ggü. 1.–<?php echo $day; ?>. <?php echo hc_h($prevName); ?><?php echo (int) $summary['month']['open'] > 0 ? ' · ' . (int) $summary['month']['open'] . ' offen' : ''; ?></span></div>
 	</div>
 	<div class="tile">
 		<div class="l"><span class="bl"><?php echo hc_icon('calendar', 18); ?></span>Umsatz Vormonat</div>
@@ -91,14 +91,14 @@
 		<div class="ph">
 			<div>
 				<h3>Umsatzverlauf</h3>
-				<small>Tagesumsatz aller Maschinen · nur ausgegebene Verkäufe</small>
+				<small>Tagesumsatz aller Maschinen · Herstellung und fertig</small>
 			</div>
 			<div class="r">Ø <?php echo hc_money((float) $summary['avg_per_day']); ?> / Tag</div>
 		</div>
 		<?php echo hc_bar_chart($summary['chart']); ?>
 		<div class="ph" style="margin-top:18px"><div><h3>Beliebteste Getränke im <?php echo hc_h($monthName); ?></h3></div></div>
 		<?php if ($summary['drinks'] === array()) { ?>
-			<p class="muted">In diesem Monat gibt es noch keine ausgegebenen Verkäufe.</p>
+			<p class="muted">In diesem Monat gibt es noch keine Verkäufe.</p>
 		<?php } ?>
 		<?php foreach ($summary['drinks'] as $drink) { ?>
 			<div class="prod">

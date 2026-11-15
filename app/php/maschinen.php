@@ -50,7 +50,7 @@
 					<td><?php echo hc_h($device['device_type_name']); ?></td>
 					<td><?php echo hc_h($device['soft_run_version']); ?></td>
 					<td><?php echo hc_clock($device['heart_time'] ?? null, true); ?></td>
-					<td><span class="amp <?php echo hc_h($tone[0]); ?>"><i></i><?php echo hc_h($tone[1]); ?></span></td>
+					<td><span class="amp <?php echo hc_h($tone[0]); ?>"><i></i><?php echo hc_h($tone[1]); ?></span><?php echo hc_webhook_line($device, $tone[0]); ?></td>
 				</tr>
 			<?php } ?>
 		</tbody>

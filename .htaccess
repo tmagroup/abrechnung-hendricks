@@ -1,4 +1,9 @@
 RewriteEngine On
+
+# Coffeeji-Webhook. POST mit JSON muss diesen Pfad erreichen.
+# ModSecurity und weitere Regeln dürfen POST hier nicht blockieren.
+RewriteRule ^coffeeji_webhook/?$ coffeeji_webhook.php [L,QSA]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php/$1 [L]

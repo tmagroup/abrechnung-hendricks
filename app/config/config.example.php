@@ -17,4 +17,14 @@
 	$coffeeji_base_url = 'https://vdopen.coffeeji.com';
 	$coffeeji_api_key = 'CHANGE_ME';
 	$coffeeji_api_secret = 'CHANGE_ME';
+
+	// Webhook-Empfang. Leer oder kürzer als 16 Zeichen deaktiviert den Endpunkt (HTTP 403).
+	// Erzeugen: openssl rand -hex 32
+	// Dieselbe URL in alle drei Felder im Portal (Benutzerinfo, Tab "open api").
+	// Umgebungsvariablen haben Vorrang: COFFEEJI_WEBHOOK_TOKEN, COFFEEJI_WEBHOOK_IPS, COFFEEJI_WEBHOOK_MAX_BYTES
+	$coffeeji_webhook_token = '';
+	// Optional, kommagetrennt. Leer = keine IP-Prüfung. Beispiel: 203.0.113.10,203.0.113.11
+	$coffeeji_webhook_ips = '';
+	// Body-Obergrenze in Bytes (1024 bis 1048576).
+	$coffeeji_webhook_max_bytes = 65536;
 ?>
