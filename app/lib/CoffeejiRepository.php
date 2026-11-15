@@ -691,10 +691,7 @@ class CoffeejiRepository
 		$refund = $order['refund_status'] === null ? null : (string) $order['refund_status'];
 		$created = $order['create_time'];
 		$zone = (string) $order['time_zone_id'];
-		$json = json_encode(CoffeejiResponse::stripSecrets($order), JSON_UNESCAPED_UNICODE);
-		if ($json === false) {
-			$json = '{}';
-		}
+		$json = CoffeejiOrder::storedJson($order);
 		$orderNo = (string) $order['order_no'];
 		$stmt->bind_param(
 			'sssssssisssss',
@@ -751,10 +748,7 @@ class CoffeejiRepository
 		$outTime = $order['out_stock_time'] ?? null;
 		$refundTime = $order['refund_time'] ?? null;
 		$fail = (string) ($order['fail_remark'] ?? '');
-		$json = json_encode(CoffeejiResponse::stripSecrets($order), JSON_UNESCAPED_UNICODE);
-		if ($json === false) {
-			$json = '{}';
-		}
+		$json = CoffeejiOrder::storedJson($order);
 		if ($update) {
 			$stmt->bind_param(
 				'sssssssissssssssss',
@@ -826,10 +820,7 @@ class CoffeejiRepository
 		$refund = $order['refund_status'] === null ? null : (string) $order['refund_status'];
 		$created = $order['create_time'];
 		$zone = (string) $order['time_zone_id'];
-		$json = json_encode(CoffeejiResponse::stripSecrets($order), JSON_UNESCAPED_UNICODE);
-		if ($json === false) {
-			$json = '{}';
-		}
+		$json = CoffeejiOrder::storedJson($order);
 		$stmt->bind_param(
 			'ssssssssissss',
 			$orderNo,

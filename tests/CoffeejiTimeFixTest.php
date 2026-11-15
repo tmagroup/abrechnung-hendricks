@@ -66,40 +66,58 @@ final class CoffeejiTimeFixTest extends TestCase
 			'create_time' => '2026-11-14 21:52:56',
 			'time_zone_id' => 'UTC+01:00',
 		));
+		$this->insertOrder('A261012145202000000099', '2026-10-12 07:52:03', 'UTC+01:00', array(
+			'order_no' => 'A261012145202000000099',
+			'create_time' => '2026-10-12 07:52:03',
+			'time_zone_id' => 'UTC+01:00',
+		));
 		$this->insertDevice('9000000000000000771', '2026-11-15 08:15:00', array(
 			'id' => '9000000000000000771',
 			'heartTime' => '2026-11-15 08:15:00',
+			'timeZoneId' => 'UTC+8',
+		));
+		$this->insertDevice('9000000000000000772', '2026-11-15 09:00:00', array(
+			'id' => '9000000000000000772',
+			'heartTime' => '2026-11-15 09:00:00',
 		));
 
 		$fix = new CoffeejiTimeFix($db);
 		$dry = $fix->run(true);
 
 		$this->assertTrue($dry['dry_run']);
-		$this->assertSame(1, $dry['orders_changed']);
+		$this->assertSame(2, $dry['orders_changed']);
 		$this->assertSame(1, $dry['orders_unchanged']);
+		$this->assertSame(0, $dry['orders_skipped']);
 		$this->assertSame(1, $dry['devices_changed']);
-		$this->assertSame(0, $dry['devices_unchanged']);
-		$this->assertStringContainsString('Trockenlauf', $fix->summary($dry));
+		$this->assertSame(1, $dry['devices_unchanged']);
+		$summary = $fix->summary($dry);
+		$this->assertStringContainsString('Trockenlauf', $summary);
+		$this->assertStringContainsString('A261012145202000000099: 2026-10-12 07:52:03 -> 2026-10-12 08:52:03', $summary);
 		$this->assertSame('2026-11-13 00:59:28', $this->orderTime('DEMO-TZ-UTC8'));
+		$this->assertSame('2026-10-12 07:52:03', $this->orderTime('A261012145202000000099'));
 		$this->assertSame('2026-11-15 08:15:00', $this->deviceTime('9000000000000000771'));
+		$this->assertSame('2026-11-15 09:00:00', $this->deviceTime('9000000000000000772'));
 
 		$applied = $fix->run(false);
 		$this->assertFalse($applied['dry_run']);
-		$this->assertSame(1, $applied['orders_changed']);
+		$this->assertSame(2, $applied['orders_changed']);
 		$this->assertSame(1, $applied['devices_changed']);
 		$this->assertSame('2026-11-12 17:59:28', $this->orderTime('DEMO-TZ-UTC8'));
 		$this->assertSame('2026-11-14 21:52:56', $this->orderTime('DEMO-TZ-UTC1'));
+		$this->assertSame('2026-10-12 08:52:03', $this->orderTime('A261012145202000000099'));
 		$this->assertSame('2026-11-15 01:15:00', $this->deviceTime('9000000000000000771'));
+		$this->assertSame('2026-11-15 09:00:00', $this->deviceTime('9000000000000000772'));
 		$raw = json_decode($this->orderRaw('DEMO-TZ-UTC8'), true);
 		$this->assertIsArray($raw);
 		$this->assertSame('2026-11-13 00:59:28', $raw['source_create_time']);
 
 		$again = $fix->run(false);
 		$this->assertSame(0, $again['orders_changed']);
-		$this->assertSame(2, $again['orders_unchanged']);
+		$this->assertSame(3, $again['orders_unchanged']);
 		$this->assertSame(0, $again['devices_changed']);
-		$this->assertSame(1, $again['devices_unchanged']);
+		$this->assertSame(2, $again['devices_unchanged']);
 		$this->assertSame('2026-11-12 17:59:28', $this->orderTime('DEMO-TZ-UTC8'));
+		$this->assertSame('2026-10-12 08:52:03', $this->orderTime('A261012145202000000099'));
 		$this->assertSame('2026-11-15 01:15:00', $this->deviceTime('9000000000000000771'));
 		$this->assertTrue(CoffeejiTimeFix::isDryRun(array('coffeeji_fix_times.php', '--dry-run')));
 		$this->assertFalse(CoffeejiTimeFix::isDryRun(array('coffeeji_fix_times.php')));
@@ -142,6 +160,67 @@ final class CoffeejiTimeFixTest extends TestCase
 			'raw_json' => $fromColumn['raw_json'],
 		), array('create_time'));
 		$this->assertFalse($replay['changed']);
+	}
+
+	public function testLegacySnakeCaseUsesCreateTimeAndDoesNotShiftTwice(): void
+	{
+		$orderNo = 'A261012145202000000099';
+		$legacy = array(
+			'order_no' => $orderNo,
+			'create_time' => '2026-10-12 07:52:03',
+			'time_zone_id' => 'UTC+01:00',
+			'raw_json' => json_encode(array(
+				'order_no' => $orderNo,
+				'create_time' => '2026-10-12 07:52:03',
+				'time_zone_id' => 'UTC+01:00',
+			), JSON_UNESCAPED_UNICODE),
+		);
+		$plan = CoffeejiTimeFix::planOrder($legacy, array('create_time'));
+		$this->assertTrue($plan['changed']);
+		$this->assertFalse($plan['skipped']);
+		$this->assertSame('2026-10-12 08:52:03', $plan['values']['create_time']);
+		$raw = json_decode((string) $plan['raw_json'], true);
+		$this->assertIsArray($raw);
+		$this->assertSame('2026-10-12 07:52:03', $raw['create_time']);
+		$this->assertSame('2026-10-12 07:52:03', $raw['source_create_time']);
+		$this->assertArrayNotHasKey('createTime', $raw);
+
+		$stored = array(
+			'order_no' => $orderNo,
+			'create_time' => $plan['values']['create_time'],
+			'time_zone_id' => 'UTC+01:00',
+			'raw_json' => $plan['raw_json'],
+		);
+		$second = CoffeejiTimeFix::planOrder($stored, array('create_time'));
+		$this->assertFalse($second['changed']);
+		$this->assertSame('2026-10-12 08:52:03', $second['values']['create_time']);
+
+		$alreadyBerlin = array(
+			'order_no' => $orderNo,
+			'create_time' => '2026-10-12 08:52:03',
+			'time_zone_id' => 'UTC+01:00',
+			'raw_json' => json_encode(array(
+				'order_no' => $orderNo,
+				'create_time' => '2026-10-12 08:52:03',
+				'time_zone_id' => 'UTC+01:00',
+			), JSON_UNESCAPED_UNICODE),
+		);
+		$guarded = CoffeejiTimeFix::planOrder($alreadyBerlin, array('create_time'));
+		$this->assertFalse($guarded['changed']);
+		$this->assertSame('2026-10-12 08:52:03', $guarded['values']['create_time']);
+
+		$mismatch = CoffeejiTimeFix::planOrder(array(
+			'order_no' => $orderNo,
+			'create_time' => '2026-10-12 12:00:00',
+			'time_zone_id' => 'UTC+01:00',
+			'raw_json' => json_encode(array(
+				'order_no' => $orderNo,
+				'create_time' => '2026-10-12 12:00:00',
+				'time_zone_id' => 'UTC+01:00',
+			), JSON_UNESCAPED_UNICODE),
+		), array('create_time'));
+		$this->assertFalse($mismatch['changed']);
+		$this->assertTrue($mismatch['skipped']);
 	}
 
 	public function testPortalClockColumnsAreCorrectedWhenPresent(): void

@@ -94,7 +94,7 @@ ModSecurity, eine WAF oder zusätzliche `.htaccess`-Regeln dürfen POST auf `/co
 
 Dashboard und Maschinen zeigen bei einer laufenden Störung oder einem Materialalarm die Zeit des letzten passenden Webhooks.
 
-Naive Coffeeji-Zeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. Fehlt die Zone, gilt die in der Doku genannte Ost-8-Zeit (UTC+8). Bereits gespeicherte Zeilen korrigiert `app/cli/coffeeji_fix_times.php` aus `raw_json`. Zuerst `--dry-run`, danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Sync schreibt dieselbe Berlin-Zeit; der Vergleich „unverändert“ greift erst, wenn `create_time` schon stimmt.
+Naive Coffeeji-Zeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. `UTC+01:00` liegt im Sommer eine Stunde vor MESZ und im Winter auf MEZ. Fehlt die Zone, bleibt die Wanduhr stehen; UTC+8 ist nur das Beispiel in der Doku. Bestehende Zeilen korrigiert `app/cli/coffeeji_fix_times.php` aus `create_time` und `time_zone_id`. Zuerst `--dry-run` (Zählung und Beispielzeilen), danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Sync schreibt dieselbe Berlin-Zeit, sobald `create_time` abweicht.
 
 ## Ausspielen
 
@@ -103,7 +103,11 @@ Zuerst auf einer Test-Subdomain, nie als erster Schritt auf der laufenden Abrech
 1. Backup der Datenbank und des bisherigen Verzeichnisses.
 2. Code ausrollen, `app/config/config.php` nicht überschreiben.
 3. `composer install --no-dev` im Projektverzeichnis.
-4. Die Coffeeji-Migrationen in dieser Reihenfolge einspielen, soweit sie auf der Datenbank noch fehlen: `20261113_coffeeji.sql`, `20261114_coffeeji_webhook.sql`, `20261115_coffeeji_orders_portal.sql`.
+4. Die Coffeeji-Migrationen in dieser Reihenfolge einspielen, soweit sie auf der Datenbank noch fehlen: `20261113_coffeeji.sql`, `20261114_coffeeji_webhook.sql`, `20261115_coffeeji_orders_portal.sql`. Auf Test ist die Datenbank `abrechnung_test` (nicht `abrechnung`). Dort sind die ersten beiden Dateien schon gelaufen, es fehlt nur:
+
+```bash
+mysql -u abrechnung -p abrechnung_test < app/db/migrations/20261115_coffeeji_orders_portal.sql
+```
 5. Zeitkorrektur erst nach der Portal-Migration, damit `out_stock_time` und `refund_time` mitlaufen. Zuerst der Trockenlauf, dann der Schreiblauf, dann derselbe Aufruf noch einmal. Der dritte Lauf muss `Bestellungen geändert: 0` melden.
 
 ```bash

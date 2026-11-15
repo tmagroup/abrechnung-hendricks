@@ -61,6 +61,34 @@ final class CoffeejiUpsertTest extends TestCase
 		$this->assertSame(array(), $again['update']);
 	}
 
+	public function testSummerUtcPlusOneCreateTimeIsUpdatedAndThenStable(): void
+	{
+		$incoming = CoffeejiOrder::normalize(array(
+			'orderNo' => 'A261012145203000000001',
+			'deviceId' => '9000000000000000001',
+			'deviceExtNo' => 'DEMO-101',
+			'deviceName' => 'Musterkiosk',
+			'goodsName' => 'Hausmischung',
+			'price' => '1.50',
+			'payAmt' => '1.50',
+			'payWayName' => 'Bargeld',
+			'status' => 2,
+			'createTime' => '2026-10-12 07:52:03',
+			'timeZoneId' => 'UTC+01:00',
+		));
+		$stored = $incoming;
+		$stored['create_time'] = '2026-10-12 07:52:03';
+
+		$plan = CoffeejiUpsert::plan(array('A261012145203000000001' => $stored), array($incoming));
+
+		$this->assertSame(0, $plan['unchanged']);
+		$this->assertSame('2026-10-12 08:52:03', $plan['update'][0]['create_time']);
+
+		$stored['create_time'] = $incoming['create_time'];
+		$again = CoffeejiUpsert::plan(array('A261012145203000000001' => $stored), array($incoming));
+		$this->assertSame(1, $again['unchanged']);
+	}
+
 	public function testMoneyAndEmptyRefundShareOneFingerprint(): void
 	{
 		$left = $this->order('A-1', '1.50', 2);
