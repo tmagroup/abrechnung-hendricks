@@ -27,4 +27,14 @@
 	$coffeeji_webhook_ips = '';
 	// Body-Obergrenze in Bytes (1024 bis 1048576).
 	$coffeeji_webhook_max_bytes = 65536;
+
+	// heartTime von Geräteliste und Gerätedetails, wenn der Payload keine timeZoneId hat.
+	// Die Schnittstelle liefert eine naive Uhr, im Winter genau 3 Stunden hinter MEZ
+	// (Portal 15.11.2026 17:15:16, Rohwert 14:15:16). Standard ist der feste Offset UTC−2.
+	// storeSource rechnet danach nach Europe/Berlin. Im Sommer (MESZ, UTC+2) wird der
+	// Abstand 4 Stunden, nicht 2: die Quelle springt nicht mit. Das ist bei UTC-02:00 so.
+	// Leer oder 'none' lässt die Roh-Wanduhr stehen. Eine timeZoneId im Payload hat Vorrang.
+	// Bestellungen und fix_times lesen diesen Wert nicht. Umgebungsvariable hat Vorrang:
+	// COFFEEJI_DEVICE_TIME_ZONE
+	$coffeeji_device_time_zone = 'UTC-02:00';
 ?>

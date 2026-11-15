@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 final class CoffeejiTimeTest extends TestCase
@@ -119,52 +121,196 @@ final class CoffeejiTimeTest extends TestCase
 
 	public function testDeviceHeartTimeWithoutZoneMatchesMain(): void
 	{
-		$samples = array(
-			'2026-11-14 09:12:06',
-			'2026-11-14 16:12:06',
-			'2026-11-14 16:27:46',
-			'2026-11-15 04:54:00',
-			'2026-07-15 16:12:06',
-		);
-		foreach ($samples as $raw) {
-			$device = CoffeejiDevice::normalize(array(
+		$this->withDeviceZone(false, function (): void {
+			if (defined('COFFEEJI_DEVICE_TIME_ZONE') && trim((string) COFFEEJI_DEVICE_TIME_ZONE) !== CoffeejiTime::DEFAULT_DEVICE_ZONE) {
+				$this->fail('COFFEEJI_DEVICE_TIME_ZONE überdeckt den Standard im Testprozess.');
+			}
+			$this->assertSame(CoffeejiTime::DEFAULT_DEVICE_ZONE, CoffeejiTime::deviceSourceZone());
+
+			$portal = CoffeejiDevice::normalize(array(
 				'id' => '9000000000000000771',
 				'name' => 'Musterautomat',
-				'heartTime' => $raw,
+				'heartTime' => '2026-11-15 14:15:16',
 			));
-			$this->assertSame(CoffeejiTime::store($raw), $device['heart_time'], $raw);
-			$this->assertSame($raw, $device['heart_time'], $raw);
-			$again = CoffeejiDevice::normalize(array(
-				'id' => '9000000000000000771',
-				'name' => 'Musterautomat',
-				'heartTime' => $device['heart_time'],
+			$this->assertSame('2026-11-15 17:15:16', $portal['heart_time']);
+			$this->assertSame('2026-11-15 14:15:16', $portal['raw']['heartTime']);
+
+			$winter = array(
+				'2026-11-14 09:12:06' => '2026-11-14 12:12:06',
+				'2026-11-14 16:12:06' => '2026-11-14 19:12:06',
+				'2026-11-14 16:27:46' => '2026-11-14 19:27:46',
+				'2026-11-15 04:54:00' => '2026-11-15 07:54:00',
+				'2026-11-15 22:30:00' => '2026-11-16 01:30:00',
+			);
+			foreach ($winter as $raw => $expected) {
+				$this->assertSame($expected, $this->heart($raw), $raw);
+				$this->assertSame(CoffeejiTime::storeSource($raw, 'UTC-02:00'), $this->heart($raw), $raw);
+			}
+
+			// Fester Offset UTC−2: im Sommer vier Stunden hinter MESZ, nicht zwei.
+			$this->assertSame('2026-07-15 20:12:06', $this->heart('2026-07-15 16:12:06'));
+			$this->assertSame('2026-07-16 02:30:00', $this->heart('2026-07-15 22:30:00'));
+			$this->assertSame(
+				CoffeejiTime::storeSource('2026-07-15 14:15:16', 'UTC-02:00'),
+				$this->heart('2026-07-15 14:15:16')
+			);
+			$this->assertSame('2026-07-15 18:15:16', $this->heart('2026-07-15 14:15:16'));
+
+			$order = CoffeejiOrder::normalize(array(
+				'orderNo' => 'DEMO-ORDER-KEINE-GERAETEZONE',
+				'createTime' => '2026-11-15 14:15:16',
 			));
-			$this->assertSame($device['heart_time'], $again['heart_time']);
+			$this->assertSame('2026-11-15 14:15:16', $order['create_time']);
+			$summerOrder = CoffeejiOrder::normalize(array(
+				'orderNo' => 'DEMO-ORDER-SOMMER',
+				'createTime' => '2026-07-15 12:00:00',
+				'timeZoneId' => 'UTC+01:00',
+			));
+			$this->assertSame('2026-07-15 13:00:00', $summerOrder['create_time']);
+			$this->assertNull($this->heartMissing());
+		});
+
+		foreach (array('none', 'NONE', ' none ', '') as $setting) {
+			$this->withDeviceZone($setting, function () use ($setting): void {
+				$this->assertNull(CoffeejiTime::deviceSourceZone(), $setting);
+				$this->assertSame('2026-11-15 14:15:16', $this->heart('2026-11-15 14:15:16'), $setting);
+				$this->assertSame(
+					CoffeejiTime::store('2026-07-15 16:12:06'),
+					$this->heart('2026-07-15 16:12:06'),
+					$setting
+				);
+				$this->assertSame('2026-11-15 01:15:00', $this->heart('2026-11-15 08:15:00', array(
+					'timeZoneId' => 'UTC+8',
+				)), $setting);
+			});
 		}
+
+		$this->withDeviceZone('UTC-03:00', function (): void {
+			$this->assertSame('UTC-03:00', CoffeejiTime::deviceSourceZone());
+			$this->assertSame('2026-11-15 18:15:16', $this->heart('2026-11-15 14:15:16'));
+			$this->assertSame('2026-11-15 01:15:00', $this->heart('2026-11-15 08:15:00', array(
+				'time_zone_id' => 'UTC+8',
+			)));
+		});
 	}
 
 	public function testDeviceHeartTimeUsesZoneOnlyWhenPresent(): void
 	{
+		$this->withDeviceZone(false, function (): void {
+			$this->assertSame('2026-11-15 11:15:00', $this->heart('2026-11-15 08:15:00'));
+			$this->assertSame('2026-11-15 01:15:00', $this->heart('2026-11-15 08:15:00', array(
+				'timeZoneId' => 'UTC+8',
+			)));
+			$this->assertSame('2026-11-15 08:15:00', $this->heart('2026-11-15 08:15:00', array(
+				'timeZoneId' => 'UTC+01:00',
+			)));
+		});
+	}
+
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState(false)]
+	public function testDeviceZoneFromConfigWhenEnvironmentIsUnset(): void
+	{
+		$this->loadCoffeejiConfig('UTC-03:00', false);
+		$this->assertSame('UTC-03:00', COFFEEJI_DEVICE_TIME_ZONE);
+		$this->assertSame('2026-11-15 18:15:16', $this->heart('2026-11-15 14:15:16'));
+		$this->assertSame('2026-07-15 12:00:00', CoffeejiOrder::normalize(array(
+			'orderNo' => 'DEMO-ORDER-CONFIG',
+			'createTime' => '2026-07-15 12:00:00',
+		))['create_time']);
+	}
+
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState(false)]
+	public function testDeviceZoneEnvironmentOverridesConfig(): void
+	{
+		$this->loadCoffeejiConfig('UTC-03:00', 'none');
+		$this->assertSame('none', COFFEEJI_DEVICE_TIME_ZONE);
+		$this->assertNull(CoffeejiTime::deviceSourceZone());
+		$this->assertSame('2026-11-15 14:15:16', $this->heart('2026-11-15 14:15:16'));
+		$this->assertSame('2026-11-15 08:15:00', $this->heart('2026-11-15 08:15:00', array(
+			'timeZoneId' => 'UTC+01:00',
+		)));
+	}
+
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState(false)]
+	public function testDeviceZoneDefaultsWhenConfigAndEnvironmentAreMissing(): void
+	{
+		$this->loadCoffeejiConfig(null, false);
+		$this->assertSame(CoffeejiTime::DEFAULT_DEVICE_ZONE, COFFEEJI_DEVICE_TIME_ZONE);
+		$this->assertSame('2026-11-15 17:15:16', $this->heart('2026-11-15 14:15:16'));
+	}
+
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState(false)]
+	public function testEmptyDeviceZoneConfigKeepsTheWallClock(): void
+	{
+		$this->loadCoffeejiConfig('', false);
+		$this->assertSame('', COFFEEJI_DEVICE_TIME_ZONE);
+		$this->assertNull(CoffeejiTime::deviceSourceZone());
+		$this->assertSame('2026-11-15 14:15:16', $this->heart('2026-11-15 14:15:16'));
+	}
+
+	/**
+	 * @param callable(): void $assert
+	 */
+	private function withDeviceZone(string|false $zone, callable $assert): void
+	{
+		$previous = getenv('COFFEEJI_DEVICE_TIME_ZONE');
+		if ($zone === false) {
+			putenv('COFFEEJI_DEVICE_TIME_ZONE');
+		} else {
+			putenv('COFFEEJI_DEVICE_TIME_ZONE=' . $zone);
+		}
+		try {
+			$assert();
+		} finally {
+			if ($previous === false) {
+				putenv('COFFEEJI_DEVICE_TIME_ZONE');
+			} else {
+				putenv('COFFEEJI_DEVICE_TIME_ZONE=' . $previous);
+			}
+		}
+	}
+
+	/**
+	 * @param array<string, mixed> $extra
+	 */
+	private function heart(string $raw, array $extra = array()): ?string
+	{
+		$device = CoffeejiDevice::normalize(array_merge(array(
+			'id' => '9000000000000000771',
+			'name' => 'Musterautomat',
+			'heartTime' => $raw,
+		), $extra));
+
+		return $device['heart_time'];
+	}
+
+	private function heartMissing(): ?string
+	{
 		$device = CoffeejiDevice::normalize(array(
 			'id' => '9000000000000000771',
 			'name' => 'Musterautomat',
-			'heartTime' => '2026-11-15 08:15:00',
 		));
-		$this->assertSame('2026-11-15 08:15:00', $device['heart_time']);
-		$china = CoffeejiDevice::normalize(array(
-			'id' => '9000000000000000773',
-			'name' => 'Musterautomat',
-			'heartTime' => '2026-11-15 08:15:00',
-			'timeZoneId' => 'UTC+8',
-		));
-		$this->assertSame('2026-11-15 01:15:00', $china['heart_time']);
 
-		$local = CoffeejiDevice::normalize(array(
-			'id' => '9000000000000000772',
-			'name' => 'Musterautomat',
-			'heartTime' => '2026-11-15 08:15:00',
-			'timeZoneId' => 'UTC+01:00',
-		));
-		$this->assertSame('2026-11-15 08:15:00', $local['heart_time']);
+		return $device['heart_time'];
+	}
+
+	private function loadCoffeejiConfig(?string $configured, string|false $env): void
+	{
+		if (!defined('APP_FOLDER')) {
+			define('APP_FOLDER', 'app');
+		}
+		if ($env === false) {
+			putenv('COFFEEJI_DEVICE_TIME_ZONE');
+		} else {
+			putenv('COFFEEJI_DEVICE_TIME_ZONE=' . $env);
+		}
+		if ($configured !== null) {
+			$coffeeji_device_time_zone = $configured;
+		}
+		require dirname(__DIR__) . '/app/config/function/coffeeji.php';
 	}
 }

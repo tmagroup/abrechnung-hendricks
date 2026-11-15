@@ -33,8 +33,9 @@ class CoffeejiDevice
 	}
 
 	/**
-	 * Ohne timeZoneId wie auf main: CoffeejiTime::store liest die naive Uhr als Europe/Berlin.
-	 * Steht eine Zone dabei, gilt sie wie bei Bestellungen.
+	 * Ohne timeZoneId gilt die Gerätezone (Standard UTC-02:00) und wird wie eine
+	 * Bestellzeit über CoffeejiTime::storeSource nach Europe/Berlin gelegt.
+	 * Leer oder none stellt die alte Wanduhr her. Eine Zone im Payload gewinnt.
 	 *
 	 * @param array<string, mixed> $row
 	 */
@@ -42,11 +43,16 @@ class CoffeejiDevice
 	{
 		$value = $row['heartTime'] ?? null;
 		$zone = trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? ''));
-		if ($zone === '') {
+		if ($zone !== '') {
+			return CoffeejiTime::storeSource($value, $zone);
+		}
+
+		$configured = CoffeejiTime::deviceSourceZone();
+		if ($configured === null) {
 			return CoffeejiTime::store($value);
 		}
 
-		return CoffeejiTime::storeSource($value, $zone);
+		return CoffeejiTime::storeSource($value, $configured);
 	}
 
 	private static function nullableInt(mixed $value): ?int

@@ -16,8 +16,9 @@ Schlüssel nur in `app/config/config.php` (liegt in `.gitignore`) oder als Umgeb
 | `COFFEEJI_WEBHOOK_TOKEN` | Geheimnis in der Webhook-URL, mindestens 16 Zeichen |
 | `COFFEEJI_WEBHOOK_IPS` | Optional, kommagetrennte Absender-IPs |
 | `COFFEEJI_WEBHOOK_MAX_BYTES` | Optionale Body-Obergrenze, Standard 65536 |
+| `COFFEEJI_DEVICE_TIME_ZONE` | Zone für `heartTime` ohne `timeZoneId`. Standard `UTC-02:00`. Leer oder `none` behält die Roh-Wanduhr |
 
-In `app/config/config.php` heißen dieselben Werte `$coffeeji_base_url`, `$coffeeji_api_key`, `$coffeeji_api_secret`, `$coffeeji_webhook_token`, `$coffeeji_webhook_ips` und `$coffeeji_webhook_max_bytes`. Platzhalter stehen in `app/config/config.example.php`. Solange die API-Schlüssel fehlen oder `CHANGE_ME` sind, zeigt das Dashboard einen Hinweis. Die Abrechnung läuft davon unabhängig. Ohne Webhook-Token antwortet `/coffeeji_webhook` mit HTTP 403.
+In `app/config/config.php` heißen dieselben Werte `$coffeeji_base_url`, `$coffeeji_api_key`, `$coffeeji_api_secret`, `$coffeeji_webhook_token`, `$coffeeji_webhook_ips`, `$coffeeji_webhook_max_bytes` und `$coffeeji_device_time_zone`. Platzhalter stehen in `app/config/config.example.php`. Solange die API-Schlüssel fehlen oder `CHANGE_ME` sind, zeigt das Dashboard einen Hinweis. Die Abrechnung läuft davon unabhängig. Ohne Webhook-Token antwortet `/coffeeji_webhook` mit HTTP 403.
 
 Der Client liest nur:
 
@@ -94,7 +95,13 @@ ModSecurity, eine WAF oder zusätzliche `.htaccess`-Regeln dürfen POST auf `/co
 
 Dashboard und Maschinen zeigen bei einer laufenden Störung oder einem Materialalarm die Zeit des letzten passenden Webhooks.
 
-Naive Bestellzeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. `UTC+01:00` liegt im Sommer eine Stunde vor MESZ und im Winter auf MEZ. Fehlt die Zone bei einer Bestellung, bleibt die Wanduhr stehen. `heartTime` ohne Zone läuft wie bisher über `CoffeejiTime::store` und behält die Wanduhr; das Korrektur-Skript schreibt Gerätezeiten nicht um, das übernimmt der Sync. Bestehende Bestellungen korrigiert `app/cli/coffeeji_fix_times.php` aus `create_time` und `time_zone_id`. Zuerst `--dry-run` (Zählung und Beispielzeilen), danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Sync schreibt dieselbe Berlin-Zeit, sobald `create_time` abweicht.
+Naive Bestellzeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. `UTC+01:00` liegt im Winter auf MEZ und im Sommer eine Stunde hinter MESZ. Fehlt die Zone bei einer Bestellung, bleibt die Wanduhr stehen. Die Geräte-Einstellung gilt dafür nicht.
+
+`heartTime` aus Geräteliste und Gerätedetails kommt ohne `timeZoneId`. Ein Abgleich mit dem Portal zeigt die naive Uhr im Winter genau drei Stunden hinter der echten MEZ, sekundengenau (Portal 15.11.2026 17:15:16, Schnittstelle und bisherige Spalte 14:15:16). Ohne Zone im Payload gilt `$coffeeji_device_time_zone` bzw. `COFFEEJI_DEVICE_TIME_ZONE`. Der Standard `UTC-02:00` ist dieser feste Offset. `CoffeejiTime::storeSource` rechnet ihn wie eine Bestellzeit nach Europe/Berlin. Steht `timeZoneId` im Payload, gilt diese Zone und die Einstellung nicht.
+
+Weil die Quelle ein fester Offset ist, verkürzt sich der Abstand im Sommer nicht auf zwei Stunden. MEZ ist UTC+1, der Abstand zu UTC−2 ist drei Stunden (14:15:16 wird 17:15:16). MESZ ist UTC+2, der Abstand ist dann vier Stunden (14:15:16 wird 18:15:16). Die Quelle springt nicht mit, Berlin schon. Das ist bei `UTC-02:00` so und hier der Standard. Leer oder `none` stellt das alte Verhalten her: `CoffeejiTime::store` behält die Roh-Wanduhr. Eine unbekannte Zone lässt die Wanduhr ebenfalls stehen, wie bei Bestellungen ohne erkennbare Zone.
+
+`app/cli/coffeeji_fix_times.php` schreibt Gerätezeiten nicht um. Es gibt keine Migration und kein Umschreiben alter Zeilen. Der Geräte-Sync (Cron alle 7 Minuten) überschreibt `heart_time` beim nächsten Lauf aus der Schnittstelle. Ein Eintrag in `config.php` ist optional; ohne ihn gilt `UTC-02:00`. Bestehende Bestellungen korrigiert `app/cli/coffeeji_fix_times.php` aus `create_time` und `time_zone_id`. Zuerst `--dry-run` (Zählung und Beispielzeilen), danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Bestell-Sync schreibt dieselbe Berlin-Zeit, sobald `create_time` abweicht.
 
 ## Ausspielen
 
