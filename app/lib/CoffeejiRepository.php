@@ -6,6 +6,8 @@ class CoffeejiRepository
 {
 	private ?mysqli $db = null;
 
+	private ?bool $orderDetails = null;
+
 	public function tablesReady(): bool
 	{
 		$db = $this->db();
@@ -253,14 +255,18 @@ class CoffeejiRepository
 			}
 		}
 		$existing = array();
+		$details = $this->orderDetailsReady();
 		if ($numbers !== array()) {
 			$placeholders = implode(',', array_fill(0, count($numbers), '?'));
 			$types = str_repeat('s', count($numbers));
+			$columns = 'order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+					pay_way_name, status, refund_status, create_time, time_zone_id';
+			if ($details) {
+				$columns .= ', pay_way, out_stock_status, out_stock_time, refund_time, fail_remark';
+			}
 			$rows = $this->fetchAll(
 				$this->db(),
-				"SELECT order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
-					pay_way_name, status, refund_status, create_time, time_zone_id
-				FROM cj_orders WHERE order_no IN ($placeholders)",
+				"SELECT $columns FROM cj_orders WHERE order_no IN ($placeholders)",
 				$types,
 				array_values($numbers)
 			);
@@ -269,7 +275,7 @@ class CoffeejiRepository
 			}
 		}
 
-		$plan = CoffeejiUpsert::plan($existing, $orders);
+		$plan = CoffeejiUpsert::plan($existing, $orders, $details);
 		foreach ($plan['insert'] as $order) {
 			$this->insertOrder($order);
 		}
@@ -301,11 +307,39 @@ class CoffeejiRepository
 		);
 	}
 
+	public function orderDetailsReady(): bool
+	{
+		if ($this->orderDetails !== null) {
+			return $this->orderDetails;
+		}
+		$rows = $this->fetchAll(
+			$this->db(),
+			'SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+				WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+			'sss',
+			array(DB_NAME, 'cj_orders', 'out_stock_status')
+		);
+
+		$this->orderDetails = isset($rows[0]['c']) && (int) $rows[0]['c'] === 1;
+
+		return $this->orderDetails;
+	}
+
 	/**
 	 * @param array<string, mixed> $order
 	 */
 	private function insertOrder(array $order): void
 	{
+		if ($this->orderDetailsReady()) {
+			$sql = 'INSERT INTO cj_orders (
+					order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+					pay_way_name, status, refund_status, create_time, time_zone_id,
+					pay_way, out_stock_status, out_stock_time, refund_time, fail_remark, raw_json,
+					synced_at, created_at, updated_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())';
+			$this->bindOrderDetails($sql, $order, false);
+			return;
+		}
 		$sql = 'INSERT INTO cj_orders (
 				order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
 				pay_way_name, status, refund_status, create_time, time_zone_id, raw_json,
@@ -319,6 +353,16 @@ class CoffeejiRepository
 	 */
 	private function updateOrder(array $order): void
 	{
+		if ($this->orderDetailsReady()) {
+			$sql = 'UPDATE cj_orders SET
+					device_id = ?, device_ext_no = ?, device_name = ?, goods_name = ?, price = ?, pay_amt = ?,
+					pay_way_name = ?, status = ?, refund_status = ?, create_time = ?, time_zone_id = ?,
+					pay_way = ?, out_stock_status = ?, out_stock_time = ?, refund_time = ?, fail_remark = ?, raw_json = ?,
+					synced_at = NOW(), updated_at = NOW()
+				WHERE order_no = ?';
+			$this->bindOrderDetails($sql, $order, true);
+			return;
+		}
 		$sql = 'UPDATE cj_orders SET
 				device_id = ?, device_ext_no = ?, device_name = ?, goods_name = ?, price = ?, pay_amt = ?,
 				pay_way_name = ?, status = ?, refund_status = ?, create_time = ?, time_zone_id = ?, raw_json = ?,
@@ -361,6 +405,94 @@ class CoffeejiRepository
 			$json,
 			$orderNo
 		);
+		$stmt->execute();
+		$stmt->close();
+	}
+
+	/**
+	 * Schreibt die Portal-Spalten mit. Liegt vor bindOrder, damit der bisherige Speichervorgang unverändert bleibt.
+	 *
+	 * @param array<string, mixed> $order
+	 */
+	private function bindOrderDetails(string $sql, array $order, bool $update): void
+	{
+		$db = $this->db();
+		$stmt = $db->prepare($sql);
+		if (!$stmt) {
+			throw new CoffeejiException('Bestellung konnte nicht gespeichert werden.');
+		}
+		$orderNo = (string) $order['order_no'];
+		$deviceId = (string) ($order['device_id'] ?? '');
+		$ext = (string) ($order['device_ext_no'] ?? '');
+		$deviceName = (string) ($order['device_name'] ?? '');
+		$goods = (string) ($order['goods_name'] ?? '');
+		$price = (string) ($order['price'] ?? '0.00');
+		$pay = (string) ($order['pay_amt'] ?? '0.00');
+		$way = (string) ($order['pay_way_name'] ?? '');
+		$status = (int) ($order['status'] ?? 0);
+		$refund = ($order['refund_status'] ?? null) === null || ($order['refund_status'] ?? '') === ''
+			? null
+			: (string) $order['refund_status'];
+		$created = $order['create_time'] ?? null;
+		$zone = (string) ($order['time_zone_id'] ?? '');
+		$payWay = ($order['pay_way'] ?? null) === null || ($order['pay_way'] ?? '') === ''
+			? null
+			: (string) (int) $order['pay_way'];
+		$outStatus = ($order['out_stock_status'] ?? null) === null || ($order['out_stock_status'] ?? '') === ''
+			? null
+			: (string) (int) $order['out_stock_status'];
+		$outTime = $order['out_stock_time'] ?? null;
+		$refundTime = $order['refund_time'] ?? null;
+		$fail = (string) ($order['fail_remark'] ?? '');
+		$json = json_encode(CoffeejiResponse::stripSecrets($order), JSON_UNESCAPED_UNICODE);
+		if ($json === false) {
+			$json = '{}';
+		}
+		if ($update) {
+			$stmt->bind_param(
+				'sssssssissssssssss',
+				$deviceId,
+				$ext,
+				$deviceName,
+				$goods,
+				$price,
+				$pay,
+				$way,
+				$status,
+				$refund,
+				$created,
+				$zone,
+				$payWay,
+				$outStatus,
+				$outTime,
+				$refundTime,
+				$fail,
+				$json,
+				$orderNo
+			);
+		} else {
+			$stmt->bind_param(
+				'ssssssssisssssssss',
+				$orderNo,
+				$deviceId,
+				$ext,
+				$deviceName,
+				$goods,
+				$price,
+				$pay,
+				$way,
+				$status,
+				$refund,
+				$created,
+				$zone,
+				$payWay,
+				$outStatus,
+				$outTime,
+				$refundTime,
+				$fail,
+				$json
+			);
+		}
 		$stmt->execute();
 		$stmt->close();
 	}

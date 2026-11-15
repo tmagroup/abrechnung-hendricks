@@ -7,6 +7,8 @@ require_once __DIR__ . '/../../lib/CoffeejiResponse.php';
 require_once __DIR__ . '/../../lib/CoffeejiLogger.php';
 require_once __DIR__ . '/../../lib/CoffeejiTime.php';
 require_once __DIR__ . '/../../lib/CoffeejiOrder.php';
+require_once __DIR__ . '/../../lib/CoffeejiPortal.php';
+require_once __DIR__ . '/../../lib/CoffeejiPortalQuery.php';
 require_once __DIR__ . '/../../lib/CoffeejiDevice.php';
 require_once __DIR__ . '/../../lib/CoffeejiMaterial.php';
 require_once __DIR__ . '/../../lib/CoffeejiUpsert.php';
@@ -125,31 +127,7 @@ function hc_clock(?string $stored, bool $withDate = false): string
 
 function hc_payway(string $name): string
 {
-	$trim = trim($name);
-	$map = array(
-		'现金支付' => 'Bargeld',
-		'现金' => 'Bargeld',
-		'微信支付' => 'WeChat',
-		'支付宝支付' => 'Alipay',
-		'支付宝' => 'Alipay',
-		'刷卡支付' => 'Karte',
-		'银行卡' => 'Karte',
-		'免费' => 'Gratis',
-	);
-	if (isset($map[$trim])) {
-		return $map[$trim];
-	}
-	if ($trim === '') {
-		return '—';
-	}
-	if (stripos($trim, 'bar') !== false || stripos($trim, 'cash') !== false) {
-		return 'Bargeld';
-	}
-	if (stripos($trim, 'kart') !== false || stripos($trim, 'card') !== false) {
-		return 'Karte';
-	}
-
-	return $trim;
+	return CoffeejiPortal::payLabel($name);
 }
 
 function hc_order_status(int $status): string
@@ -268,7 +246,7 @@ function hc_bar_chart(array $days): string
 		$opacity = !empty($day['today']) ? ' opacity="0.7"' : '';
 		$svg .= '<rect x="' . round($x, 1) . '" y="' . round($y, 1) . '" width="' . round($bar, 1) . '" height="' . round(max($h, 0), 1) . '" rx="3" fill="' . $fill . '"' . $opacity . '/>';
 		$nearToday = (count($days) - 1 - $index) <= 2;
-		if (!empty($day['today']) || ($index % 5 === 0 && !$nearToday)) {
+		if (!empty($day['today']) || !empty($day['force_label']) || ($index % 5 === 0 && !$nearToday)) {
 			$svg .= '<text x="' . round($x + $bar / 2, 1) . '" y="272" text-anchor="middle" font-size="11" fill="#8a7867">' . hc_h($day['label']) . '</text>';
 		}
 	}
@@ -284,6 +262,7 @@ function hc_icon(string $name, int $size = 19): string
 		'machine' => '<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
 		'pulse' => '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
 		'gauge' => '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+		'chart' => '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-8"/>',
 		'calendar' => '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
 		'doc' => '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
 		'receipt' => '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',

@@ -1,5 +1,5 @@
 		</div>
-		<p class="hc-foot">Hendricks Coffee · Zeiten in MEZ · Umsatz nur aus ausgegebenen Verkäufen</p>
+		<p class="hc-foot"><?php echo hc_h($page_foot ?? 'Hendricks Coffee · Zeiten in MEZ · Umsatz nur aus ausgegebenen Verkäufen'); ?></p>
 	</main>
 	<script>
 		document.querySelectorAll('.nav-toggle').forEach(function (button) {

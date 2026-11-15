@@ -83,3 +83,19 @@ vendor/bin/phpunit
 ```
 
 Die Tests nutzen erfundene Beispielantworten. Echte Umsätze, Bestellungen oder Gerätekennungen gehören nicht ins Repository.
+
+## Bestellverwaltung und Statistik
+
+Im Menü liegen Bestellverwaltung sowie Statistik mit Bestellstatistik, Verkaufsstatistik und Werbestatistik. Die Seiten lesen nur `cj_orders` und `cj_devices`. Es gibt keinen Schreibaufruf an Coffeeji.
+
+Zusätzlich zur ersten Coffeeji-Migration einmalig einspielen:
+
+```bash
+mysql -u abrechnung -p abrechnung < app/db/migrations/20261115_coffeeji_orders_portal.sql
+```
+
+Die Migration ergänzt Zahlart-Code, Ausgabestatus, Ausgabezeit, Erstattungszeit und den Grund für Herstellungsfehler. Sie ist idempotent und zieht vorhandene Werte aus `raw_json` nach, wenn die Schlüssel dort stehen. Der bestehende Bestell-Cron übernimmt die Felder danach aus `getOrderList`. Ein zusätzlicher Cron ist nicht nötig.
+
+Auf diesen Seiten zählen Bestellungen mit Status 1 (in Herstellung) und 2 (fertig) zum Umsatz, analog zum Händlerportal. Hängende Bestellungen bleiben in der Summe und sind als „offen“ markiert. Dashboard, Live-Verkäufe und Maschinenkarten zählen weiterhin nur Status 2.
+
+Die Werbestatistik bleibt leer. Die Merchant-Open-API beschreibt dafür keinen lesenden Endpunkt.

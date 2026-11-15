@@ -16,6 +16,16 @@
 		array('href' => 'maschinen', 'label' => 'Maschinen', 'icon' => 'machine', 'tag' => 'NEU', 'on' => array('maschinen')),
 		array('href' => 'live_verkaeufe', 'label' => 'Live-Verkäufe', 'icon' => 'pulse', 'tag' => 'NEU', 'on' => array('live_verkaeufe')),
 		array('href' => 'fuellstaende', 'label' => 'Füllstände', 'icon' => 'gauge', 'tag' => 'NEU', 'on' => array('fuellstaende')),
+		array('group' => 'Bestellungen'),
+		array('href' => 'bestellungen', 'label' => 'Bestellungen', 'icon' => 'receipt', 'on' => array('bestellungen'), 'children' => array(
+			array('href' => 'bestellungen', 'label' => 'Bestellverwaltung', 'on' => array('bestellungen')),
+		)),
+		array('group' => 'Statistik'),
+		array('href' => 'statistik_bestellungen', 'label' => 'Statistik', 'icon' => 'chart', 'on' => array('statistik_bestellungen', 'statistik_verkaeufe', 'statistik_werbung'), 'children' => array(
+			array('href' => 'statistik_bestellungen', 'label' => 'Bestellstatistik', 'on' => array('statistik_bestellungen')),
+			array('href' => 'statistik_verkaeufe', 'label' => 'Verkaufsstatistik', 'on' => array('statistik_verkaeufe')),
+			array('href' => 'statistik_werbung', 'label' => 'Werbestatistik', 'on' => array('statistik_werbung')),
+		)),
 		array('group' => 'Abrechnung'),
 		array('href' => 'monatsabrechnung', 'label' => 'Monatsabrechnung', 'icon' => 'calendar', 'tag' => 'BALD', 'on' => array('monatsabrechnung')),
 		array('href' => 'detailabrechnung', 'label' => 'Detailabrechnung', 'icon' => 'doc', 'on' => array('detailabrechnung', 'abrechungen'), 'children' => array(

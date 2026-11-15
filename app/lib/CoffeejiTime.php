@@ -34,6 +34,8 @@ class CoffeejiTime
 			return null;
 		}
 
+		// Naive Datumsstrings gelten als Europe/Berlin. timeZoneId wird nicht gelesen.
+		// Epoch-Millis und Angaben mit Z oder Offset werden nach Europe/Berlin gedreht.
 		try {
 			if (preg_match('/(?:[zZ]|[+\-]\d{2}:?\d{2})$/', $raw) === 1) {
 				$dt = new DateTimeImmutable($raw);
