@@ -14,6 +14,8 @@ class CoffeejiOrder
 	{
 		$refund = $row['refundStatus'] ?? null;
 		$refundStatus = ($refund === null || $refund === '') ? null : (int) $refund;
+		$zone = trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? ''));
+		$source = self::sourceClock($row);
 
 		return array(
 			'order_no' => trim((string) ($row['orderNo'] ?? '')),
@@ -26,9 +28,51 @@ class CoffeejiOrder
 			'pay_way_name' => trim((string) ($row['payWayName'] ?? $row['pay_way_name'] ?? '')),
 			'status' => (int) ($row['status'] ?? 0),
 			'refund_status' => $refundStatus,
-			'create_time' => CoffeejiTime::store($row['createTime'] ?? $row['create_time'] ?? null),
-			'time_zone_id' => trim((string) ($row['timeZoneId'] ?? $row['time_zone_id'] ?? '')),
+			'create_time' => CoffeejiTime::storeSource($source, $zone),
+			'time_zone_id' => $zone,
+			'source_create_time' => self::sourceLiteral($source),
 		);
+	}
+
+	/**
+	 * Ursprüngliche Wanduhr. source_create_time gewinnt vor createTime und create_time,
+	 * damit ein zweites Normalisieren die schon gedrehte Berlin-Zeit nicht noch einmal schiebt.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	public static function sourceClock(array $row): mixed
+	{
+		foreach (array('source_create_time', 'createTime', 'create_time') as $key) {
+			if (!array_key_exists($key, $row)) {
+				continue;
+			}
+			$value = $row[$key];
+			if ($value === null || (is_string($value) && trim($value) === '')) {
+				continue;
+			}
+
+			return is_string($value) ? trim($value) : $value;
+		}
+
+		return null;
+	}
+
+	public static function sourceLiteral(mixed $value): ?string
+	{
+		if ($value === null) {
+			return null;
+		}
+		if (is_int($value)) {
+			return (string) $value;
+		}
+		if (is_string($value)) {
+			$value = trim($value);
+
+			return $value === '' ? null : $value;
+		}
+		$text = trim((string) $value);
+
+		return $text === '' ? null : $text;
 	}
 
 	public static function money(mixed $value): string

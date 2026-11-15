@@ -62,6 +62,8 @@ Nichts davon wird vom Repository eingerichtet. `/PFAD` durch das Verzeichnis ers
 
 Umsatz auf den neuen Seiten zählt nur Bestellungen mit Status 2 (ausgegeben). Beträge erscheinen als `1.234,50 €`, Uhrzeiten in MEZ.
 
+Naive Coffeeji-Zeiten werden anhand von `timeZoneId` nach Europe/Berlin gelegt. Fehlt die Zone, gilt die in der Doku genannte Ost-8-Zeit (UTC+8). Bereits gespeicherte Zeilen korrigiert `app/cli/coffeeji_fix_times.php` aus `raw_json`. Zuerst `--dry-run`, danach ohne Schalter. Das Skript ist mehrfach ausführbar. Der nächste Sync schreibt dieselbe Berlin-Zeit; der Vergleich „unverändert“ greift erst, wenn `create_time` schon stimmt.
+
 ## Ausspielen
 
 Zuerst auf einer Test-Subdomain, nie als erster Schritt auf der laufenden Abrechnung.
