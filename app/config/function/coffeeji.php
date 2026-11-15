@@ -399,8 +399,13 @@ function hc_machine_card(array $device): string
 	foreach ($materials as $material) {
 		$html .= hc_fill_bar($material);
 	}
+	$open = (int) ($device['month_open'] ?? 0);
 	$html .= '<div class="mf"><div><b>' . hc_money((float) ($device['month_amount'] ?? 0)) . '</b>Umsatz Monat</div>';
-	$html .= '<div><b>' . (int) ($device['month_count'] ?? 0) . '</b>Verkäufe</div>';
+	$html .= '<div><b>' . (int) ($device['month_count'] ?? 0) . '</b>Verkäufe';
+	if ($open > 0) {
+		$html .= '<span class="chip wait"><i></i>' . $open . ' offen</span>';
+	}
+	$html .= '</div>';
 	$html .= '<div><b>' . hc_clock($device['last_sale'] ?? null) . '</b>Letzter Verkauf</div></div>';
 	$html .= '</article>';
 
@@ -420,7 +425,8 @@ function hc_sales_html(array $orders): string
 		$status = (int) ($order['status'] ?? 0);
 		$html .= '<div class="sale"><div class="cup">' . hc_icon('machine', 19) . '</div><div><b>' . hc_h($order['goods_name'] ?: 'Verkauf') . '</b>';
 		$html .= '<span>' . hc_clock($order['create_time'] ?? null) . ' · ' . hc_h($order['device_name'] ?: $order['device_ext_no']) . '</span></div>';
-		$html .= '<div class="am">' . hc_money((float) ($order['pay_amt'] ?? 0)) . '<span>' . hc_h(hc_payway((string) ($order['pay_way_name'] ?? ''))) . '</span></div></div>';
+		$html .= '<div class="am">' . hc_money((float) ($order['pay_amt'] ?? 0)) . '<span>' . hc_h(hc_payway((string) ($order['pay_way_name'] ?? ''))) . '</span></div>';
+		$html .= hc_open_mark($status, $order['out_stock_status'] ?? null) . '</div>';
 	}
 
 	return $html;
@@ -442,7 +448,7 @@ function hc_render_live_table(array $orders): string
 		$html .= '<td>' . hc_h($order['device_name'] ?: $order['device_ext_no']) . '</td>';
 		$html .= '<td>' . hc_h(hc_payway((string) ($order['pay_way_name'] ?? ''))) . '</td>';
 		$html .= '<td class="r">' . hc_money((float) ($order['pay_amt'] ?? 0)) . '</td>';
-		$html .= '<td><span class="amp ' . hc_h(hc_order_tone($status)) . '"><i></i>' . hc_h(hc_order_status($status)) . '</span></td></tr>';
+		$html .= '<td><span class="amp ' . hc_h(hc_order_tone($status)) . '"><i></i>' . hc_h(hc_order_status($status)) . '</span> ' . hc_open_mark($status, $order['out_stock_status'] ?? null) . '</td></tr>';
 	}
 	$html .= '</tbody></table>';
 

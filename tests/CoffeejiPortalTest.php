@@ -15,7 +15,8 @@ final class CoffeejiPortalTest extends TestCase
 			$this->assertFalse(CoffeejiOrder::countsForPortalRevenue($status));
 		}
 		$this->assertTrue(CoffeejiOrder::isSale(array('status' => 2)));
-		$this->assertFalse(CoffeejiOrder::isSale(array('status' => 1)));
+		$this->assertTrue(CoffeejiOrder::isSale(array('status' => 1)));
+		$this->assertFalse(CoffeejiOrder::isSale(array('status' => 0)));
 		$this->assertTrue(CoffeejiOrder::isOpen(1, 2));
 		$this->assertTrue(CoffeejiOrder::isOpen(2, 1));
 		$this->assertFalse(CoffeejiOrder::isOpen(2, 2));

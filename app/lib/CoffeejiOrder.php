@@ -5,8 +5,7 @@ declare(strict_types=1);
 class CoffeejiOrder
 {
 	/**
-	 * Dashboard, Live-Verkäufe und Maschinenkarten zählen weiterhin nur diesen Status.
-	 * Die Bestellverwaltung und die Statistikseiten nutzen PORTAL_REVENUE_STATUSES.
+	 * Fertig ausgeliefert. Der Umsatz aller Anzeigen nutzt PORTAL_REVENUE_STATUSES.
 	 */
 	public const SALE_STATUS = 2;
 
@@ -105,7 +104,7 @@ class CoffeejiOrder
 
 	public static function isSale(array $order): bool
 	{
-		return (int) ($order['status'] ?? 0) === self::SALE_STATUS;
+		return self::countsForPortalRevenue((int) ($order['status'] ?? 0));
 	}
 
 	/**

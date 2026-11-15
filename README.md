@@ -60,7 +60,7 @@ Nichts davon wird vom Repository eingerichtet. `/PFAD` durch das Verzeichnis ers
 - `orders`: heute und gestern, Upsert über `order_no`. Der Datumsfilter der API reicht in den Vorabend hinein, deshalb filtert der Sync das Fenster lokal in Europe/Berlin nach.
 - `orders-backfill`: nächtlicher Abgleich der letzten 35 Tage.
 
-Umsatz auf den neuen Seiten zählt nur Bestellungen mit Status 2 (ausgegeben). Beträge erscheinen als `1.234,50 €`, Uhrzeiten in MEZ.
+Umsatz zählt Bestellungen mit Status 1 (in Herstellung) und 2 (fertig). Offene Bestellungen bleiben in der Summe und sind markiert. Beträge erscheinen als `1.234,50 €`, Uhrzeiten in MEZ.
 
 ## Ausspielen
 
@@ -96,6 +96,6 @@ mysql -u abrechnung -p abrechnung < app/db/migrations/20261115_coffeeji_orders_p
 
 Die Migration ergänzt Zahlart-Code, Ausgabestatus, Ausgabezeit, Erstattungszeit und den Grund für Herstellungsfehler. Sie ist idempotent und zieht vorhandene Werte aus `raw_json` nach, wenn die Schlüssel dort stehen. Der bestehende Bestell-Cron übernimmt die Felder danach aus `getOrderList`. Ein zusätzlicher Cron ist nicht nötig.
 
-Auf diesen Seiten zählen Bestellungen mit Status 1 (in Herstellung) und 2 (fertig) zum Umsatz, analog zum Händlerportal. Hängende Bestellungen bleiben in der Summe und sind als „offen“ markiert. Dashboard, Live-Verkäufe und Maschinenkarten zählen weiterhin nur Status 2.
+Dashboard, Live-Verkäufe, Maschinenkarten, Bestellverwaltung und die Statistikseiten nutzen dieselbe Regel in `CoffeejiOrder::PORTAL_REVENUE_STATUSES`: Status 1 und 2. Hängende Bestellungen bleiben in der Summe und sind als „offen“ markiert.
 
 Die Werbestatistik bleibt leer. Die Merchant-Open-API beschreibt dafür keinen lesenden Endpunkt.

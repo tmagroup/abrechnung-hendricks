@@ -34,6 +34,7 @@
 		'html' => hc_render_live_table($bundle['orders']),
 		'sum' => hc_money((float) $bundle['sales']['amount']),
 		'count' => (string) (int) $bundle['sales']['count'],
+		'open' => (int) $bundle['sales']['open'] > 0 ? (int) $bundle['sales']['open'] . ' offen' : 'Herstellung und fertig',
 		'updated' => $now->format('d.m.Y, H:i') . ' Uhr',
 	), JSON_UNESCAPED_UNICODE);
 	exit;

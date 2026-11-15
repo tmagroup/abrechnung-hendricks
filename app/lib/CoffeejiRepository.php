@@ -295,13 +295,18 @@ class CoffeejiRepository
 	 */
 	public function ordersBetween(DateTimeImmutable $from, DateTimeImmutable $to): array
 	{
+		$columns = 'order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
+				pay_way_name, status, refund_status, create_time, time_zone_id';
+		if ($this->orderDetailsReady()) {
+			$columns .= ', out_stock_status';
+		}
+
 		return $this->fetchAll(
 			$this->db(),
-			'SELECT order_no, device_id, device_ext_no, device_name, goods_name, price, pay_amt,
-				pay_way_name, status, refund_status, create_time, time_zone_id
+			"SELECT $columns
 			FROM cj_orders
 			WHERE create_time >= ? AND create_time < ?
-			ORDER BY create_time DESC',
+			ORDER BY create_time DESC",
 			'ss',
 			array($from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s'))
 		);
