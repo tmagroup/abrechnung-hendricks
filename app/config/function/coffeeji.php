@@ -68,6 +68,19 @@ if (!defined('COFFEEJI_WEBHOOK_MAX_BYTES')) {
 	define('COFFEEJI_WEBHOOK_MAX_BYTES', CoffeejiWebhook::normalizeMaxBytes($hcWebhookMax));
 }
 
+// heartTime ohne timeZoneId. Leerer Env-Wert ist absichtlich „keine Zone“, kein Fallback.
+$hcDeviceZoneEnv = getenv('COFFEEJI_DEVICE_TIME_ZONE');
+if ($hcDeviceZoneEnv !== false) {
+	$hcDeviceZone = (string) $hcDeviceZoneEnv;
+} elseif (isset($coffeeji_device_time_zone)) {
+	$hcDeviceZone = (string) $coffeeji_device_time_zone;
+} else {
+	$hcDeviceZone = CoffeejiTime::DEFAULT_DEVICE_ZONE;
+}
+if (!defined('COFFEEJI_DEVICE_TIME_ZONE')) {
+	define('COFFEEJI_DEVICE_TIME_ZONE', $hcDeviceZone);
+}
+
 function coffeeji_webhook_dispatch(): void
 {
 	while (ob_get_level() > 0) {

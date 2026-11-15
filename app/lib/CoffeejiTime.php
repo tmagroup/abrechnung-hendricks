@@ -12,6 +12,14 @@ class CoffeejiTime
 	 */
 	public const DOCUMENTED_ZONE = 'UTC+8';
 
+	/**
+	 * heartTime ohne timeZoneId. Die Geräte-API liefert eine naive Uhr auf
+	 * einem festen Offset, drei Stunden hinter MEZ (UTC+1). UTC−2 bleibt im
+	 * Sommer stehen, Europe/Berlin springt auf MESZ (UTC+2): der Abstand ist
+	 * dann vier Stunden, nicht zwei.
+	 */
+	public const DEFAULT_DEVICE_ZONE = 'UTC-02:00';
+
 	public static function zone(): DateTimeZone
 	{
 		return new DateTimeZone(self::TZ);
@@ -114,6 +122,32 @@ class CoffeejiTime
 		}
 
 		throw new InvalidArgumentException('Unbekanntes Zeitfenster.');
+	}
+
+	/**
+	 * Zone für heartTime, wenn der Payload keine timeZoneId trägt.
+	 * null lässt die Wanduhr stehen (leer oder none).
+	 * COFFEEJI_DEVICE_TIME_ZONE aus der Umgebung hat Vorrang vor der Konstante,
+	 * die aus $coffeeji_device_time_zone kommt. Fehlt beides, gilt DEFAULT_DEVICE_ZONE.
+	 * Bestellungen lesen diese Einstellung nicht.
+	 */
+	public static function deviceSourceZone(): ?string
+	{
+		$env = getenv('COFFEEJI_DEVICE_TIME_ZONE');
+		if ($env !== false) {
+			$raw = (string) $env;
+		} elseif (defined('COFFEEJI_DEVICE_TIME_ZONE')) {
+			$raw = (string) COFFEEJI_DEVICE_TIME_ZONE;
+		} else {
+			$raw = self::DEFAULT_DEVICE_ZONE;
+		}
+
+		$raw = trim($raw);
+		if ($raw === '' || strcasecmp($raw, 'none') === 0) {
+			return null;
+		}
+
+		return $raw;
 	}
 
 	/**
