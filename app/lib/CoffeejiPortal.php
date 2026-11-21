@@ -614,6 +614,39 @@ class CoffeejiPortal
 	}
 
 	/**
+	 * Dieselbe Maschine wie die Gruppierung der Bestellstatistik.
+	 *
+	 * @param array<string, mixed> $order
+	 */
+	public static function machineKeyOf(array $order): string
+	{
+		return self::machineKey($order);
+	}
+
+	/**
+	 * Sichtbare Maschinennummer, wie die Bestellliste sie ausgibt.
+	 *
+	 * @param array<string, mixed> $order
+	 */
+	public static function machineNumber(array $order): string
+	{
+		$ext = trim((string) ($order['device_ext_no'] ?? $order['machine_no'] ?? ''));
+		$deviceNo = trim((string) ($order['device_no'] ?? ''));
+		$id = trim((string) ($order['device_id'] ?? ''));
+		if ($ext !== '') {
+			return $ext;
+		}
+		if ($deviceNo !== '') {
+			return $deviceNo;
+		}
+		if ($id !== '') {
+			return $id;
+		}
+
+		return 'unbekannt';
+	}
+
+	/**
 	 * @param array<string, mixed> $order
 	 */
 	private static function machineKey(array $order): string
