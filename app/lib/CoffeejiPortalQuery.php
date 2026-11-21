@@ -149,6 +149,48 @@ class CoffeejiPortalQuery
 	}
 
 	/**
+	 * Alle Bestellungen im Fenster, ohne Statusfilter. Die Abrechnung wendet
+	 * danach dieselbe Umsatzregel an wie Liste und Statistik.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	public function ordersBetween(DateTimeImmutable $from, DateTimeImmutable $to): array
+	{
+		if (!$this->tablesReady()) {
+			throw new CoffeejiException('Die Tabelle cj_orders fehlt.');
+		}
+		$details = $this->detailsReady();
+		$filter = array(
+			'from' => $from,
+			'to' => $to,
+			'order_no' => '',
+			'device_name' => '',
+			'device_no' => '',
+			'goods_name' => '',
+			'pay_way_name' => '',
+			'status' => null,
+			'out_stock_status' => null,
+		);
+		$where = $this->where($filter, $details, false);
+		$limit = 100001;
+		$rows = $this->fetch(
+			'SELECT ' . $this->columns($details) . '
+			FROM cj_orders o
+			LEFT JOIN cj_devices d ON d.id = o.device_id
+			WHERE ' . $where['sql'] . '
+			ORDER BY o.create_time ASC, o.id ASC
+			LIMIT ' . $limit,
+			$where['types'],
+			$where['params']
+		);
+		if (count($rows) >= $limit) {
+			throw new CoffeejiException('Im Zeitraum liegen zu viele Bestellungen für eine Abrechnung.');
+		}
+
+		return array_map(array($this, 'present'), $rows);
+	}
+
+	/**
 	 * @param array<string, mixed> $filter
 	 * @return array{sql: string, types: string, params: list<mixed>}
 	 */

@@ -53,6 +53,9 @@ final class PageReachabilityTest extends TestCase
 		$this->assertStringContainsString('abrechnung_gesamt/', $ajax);
 		$this->assertStringNotContainsString('detailabrechnung/', $ajax);
 		$this->assertStringContainsString('hc_money(', $ajax);
+		$this->assertStringContainsString('AbrechnungListQuery::fromPost', $ajax);
+		$this->assertStringNotContainsString('$_POST[\'length\']', $ajax);
+		$this->assertStringNotContainsString('$_POST[\'search\']', $ajax);
 
 		$detailAjax = (string) file_get_contents($this->phpRoot() . '/abrechungen_ajax.php');
 		$provisionAjax = (string) file_get_contents($this->phpRoot() . '/provisionsabrechung_list_ajax.php');
@@ -60,6 +63,26 @@ final class PageReachabilityTest extends TestCase
 		$this->assertStringContainsString('hc_money(', $provisionAjax);
 		$this->assertStringContainsString('detailabrechnung/', $detailAjax);
 		$this->assertStringContainsString('provisionsabrechung/', $provisionAjax);
+	}
+
+	public function testGesamtAbrechnungRechnetAusBestellungenUndBehaeltExcel(): void
+	{
+		$view = (string) file_get_contents($this->phpRoot() . '/abrechnung_gesamt.php');
+		$db = (string) file_get_contents(dirname(__DIR__) . '/app/db/abrechnung_gesamt.php');
+		$list = (string) file_get_contents($this->phpRoot() . '/abrechnung_gesamt_list.php');
+		$this->assertStringContainsString('Altdaten (Excel)', $view);
+		$this->assertStringContainsString('name="add_excel"', $view);
+		$this->assertStringContainsString('name="speichern"', $view);
+		$this->assertStringContainsString('CoffeejiSettlement', $db);
+		$this->assertStringContainsString("=== 'yes'", $db);
+		$this->assertStringNotContainsString("= \"yes\"", $db);
+		$this->assertStringContainsString('deleted_at IS NULL AND DATE_FORMAT(created_at', $list);
+		$this->assertStringNotContainsString('deleted_at IS NOT NULL AND DATE_FORMAT', $list);
+		$this->assertStringContainsString('Quelle', $list);
+
+		foreach (glob($this->phpRoot() . '/*_delete.php') ?: array() as $file) {
+			$this->assertStringContainsString('afterLogin()', (string) file_get_contents($file), $file);
+		}
 	}
 
 	/**

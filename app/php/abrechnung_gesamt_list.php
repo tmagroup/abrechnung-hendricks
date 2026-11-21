@@ -9,7 +9,7 @@
 	
 	// Statistiken für die Karten (dieselbe Tabelle wie die Liste und das Löschen: invoice2)
 	$stat_total     = countRec("invoice2", "deleted_at IS NULL");
-	$stat_current   = countRec("invoice2", "deleted_at IS NOT NULL AND DATE_FORMAT(created_at, '%Y-%m') = '".date('Y-m')."'");
+	$stat_current   = countRec("invoice2", "deleted_at IS NULL AND DATE_FORMAT(created_at, '%Y-%m') = '".date('Y-m')."'");
 	$latest         = query("SELECT start_date FROM invoice2 WHERE deleted_at IS NULL ORDER BY start_date DESC LIMIT 1");
 	$stat_latest    = "–";
 	if (!empty($latest[0]['start_date'])) {
@@ -75,6 +75,7 @@
 								<th>Abrechnungsnr</th>
 								<th>Zeitraum</th>
 								<th class="r">Betrag</th>
+								<th>Quelle</th>
 								<th>Status</th>
 								<th>Aktion</th>
 							</tr>
@@ -104,7 +105,7 @@ $(document).ready(function () {
         },
         "columnDefs": [
             { "className": "r", "targets": 2 },
-            { "orderable": false, "targets": 4 }
+            { "orderable": false, "targets": 5 }
         ],
         "ajax": {
             "url": "<?= $app_url.'abrechnung_gesamt_list_ajax'; ?>",

@@ -37,4 +37,8 @@
 	// Bestellungen und fix_times lesen diesen Wert nicht. Umgebungsvariable hat Vorrang:
 	// COFFEEJI_DEVICE_TIME_ZONE
 	$coffeeji_device_time_zone = 'UTC-02:00';
+
+	// Händlertext in der Gesamtabrechnung (PDF-Spalte). Umgebungsvariable hat Vorrang:
+	// ABRECHNUNG_HAENDLER
+	$abrechnung_haendler = 'The Hendricks Coffee';
 ?>
